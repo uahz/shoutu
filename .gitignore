@@ -1,0 +1,7 @@
+build/
+dist/
+__pycache__/
+*.spec
+_game_check.js
+node_modules/
+.DS_Store
