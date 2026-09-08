@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>守土 · 架空城市治理模拟</title>
+<style>
+:root{
+  --bg0:#0a100e; --bg1:#111b16;
+  --card:rgba(226,214,178,.055); --card2:rgba(226,214,178,.10);
+  --stroke:rgba(216,180,90,.16); --stroke2:rgba(216,180,90,.32);
+  --txt:#ece5d3; --txt2:rgba(236,229,211,.64); --txt3:rgba(236,229,211,.38);
+  --seal:#c8452c; --gold:#d8b45a; --paper:#f2ead6; --ink:#2b2822;
+  --green:#5ba583; --red:#d05045; --blue:#c8452c; --amber:#d8b45a;
+  --orange:#d9a441; --cyan:#74b3a4; --purple:#9a8fb8;
+  --r:10px; --ease:cubic-bezier(.32,.72,0,1);
+  --serif:"Kaiti SC","KaiTi","STKaiti","SimKai","Songti SC","SimSun",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg0);color:var(--txt);overflow:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-2;
+  background:radial-gradient(1100px 640px at 14% -6%,#1d332b 0%,transparent 60%),
+             radial-gradient(920px 580px at 94% 6%,#33221c 0%,transparent 58%),
+             radial-gradient(780px 540px at 58% 110%,#15281f 0%,transparent 60%),
+             linear-gradient(180deg,var(--bg1),var(--bg0) 72%)}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(rgba(216,180,90,.05) 1px,transparent 1px);background-size:26px 26px}
+.glass{background:var(--card);border:1px solid var(--stroke);border-radius:var(--r);
+  backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
+  box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(216,180,90,.08)}
+.app{height:100vh;display:grid;grid-template-rows:auto 1fr auto;gap:10px;padding:12px;
+  max-width:1200px;margin:0 auto;position:relative}
+
+/* ── 顶栏（公文抬头） ── */
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 14px;z-index:20;
+  border-bottom:2px solid rgba(200,69,44,.5)}
+.icon-btn{width:38px;height:38px;border-radius:8px;border:1px solid var(--stroke);background:var(--card2);
+  color:var(--gold);font-size:16px;cursor:pointer;display:grid;place-items:center;transition:all .2s var(--ease);flex:0 0 auto}
+.icon-btn:hover{background:rgba(216,180,90,.14);transform:translateY(-1px)}
+.icon-btn.plus{font-size:20px;font-weight:300}
+.tb-title{flex:0 0 auto;min-width:150px}
+.tb-title .rank{font-family:var(--serif);font-size:17px;font-weight:700;letter-spacing:.1em;color:#e8d5a8}
+.tb-title .rank::after{content:"";display:block;width:100%;height:1px;margin-top:3px;
+  background:linear-gradient(90deg,rgba(216,180,90,.55),transparent)}
+.tb-title .meta{font-size:11.5px;color:var(--txt3);margin-top:4px;letter-spacing:.06em}
+.tb-stats{flex:1;display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+.st{padding:6px 12px;border-radius:6px;background:var(--card2);border:1px solid var(--stroke);min-width:86px;position:relative}
+.st::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;background:rgba(200,69,44,.55);border-radius:1px}
+.st .k{font-size:10px;color:var(--txt3);letter-spacing:.14em}
+.st .v{font-size:14px;font-weight:640;font-variant-numeric:tabular-nums;margin-top:1px;font-family:var(--serif)}
+
+/* ── 舞台 · 宣纸规划图 ── */
+.stage{position:relative;display:grid;place-items:center;overflow:auto;border-radius:var(--r)}
+.stage::-webkit-scrollbar{width:6px;height:6px}
+.stage::-webkit-scrollbar-thumb{background:rgba(216,180,90,.22);border-radius:3px}
+.map{display:grid;gap:var(--gap);padding:12px;border-radius:6px;
+  background:linear-gradient(160deg,#ebe1c6,#e0d4b4);border:1px solid #b9a878;
+  box-shadow:inset 0 2px 16px rgba(92,74,38,.32),0 0 0 4px rgba(0,0,0,.22)}
+.cell{width:var(--cs);height:var(--cs);border-radius:4px;background:#ddd2b4;cursor:pointer;position:relative;
+  transition:transform .16s var(--ease),box-shadow .16s var(--ease),background .25s;
+  display:grid;place-items:center;font-family:var(--serif);font-weight:700;
+  font-size:calc(var(--cs)*0.42);color:#3a3220;box-shadow:inset 0 0 0 1px rgba(92,74,38,.18)}
+.cell:hover{transform:scale(1.16);z-index:3;box-shadow:0 6px 16px rgba(60,45,18,.45),inset 0 0 0 1px rgba(200,69,44,.6)}
+.cell.new{animation:pop .45s var(--ease)}
+@keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.22)}100%{transform:scale(1);opacity:1}}
+.stage-tip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:11.5px;color:#d9cdb0;
+  padding:6px 14px;border-radius:4px;background:rgba(12,18,15,.82);border:1px solid rgba(216,180,90,.35);pointer-events:none}
+
+/* ── 建造抽屉 ── */
+.drawer{position:absolute;left:10px;right:10px;bottom:10px;padding:12px 14px;z-index:15;
+  transform:translateY(130%);transition:transform .36s var(--ease)}
+.drawer.open{transform:none}
+.dw-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.dw-tab{padding:6px 13px;border-radius:6px;font-size:12px;color:var(--txt3);cursor:pointer;
+  border:1px solid transparent;transition:all .2s var(--ease)}
+.dw-tab:hover{color:var(--txt2)}
+.dw-tab.on{color:#f0e3c0;background:rgba(200,69,44,.22);border-color:rgba(200,69,44,.55)}
+.dw-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.bcard{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:6px;cursor:pointer;
+  background:rgba(226,214,178,.05);border:1px solid var(--stroke);transition:all .2s var(--ease)}
+.bcard:hover{background:rgba(226,214,178,.12);transform:translateY(-1px)}
+.bcard.on{background:rgba(200,69,44,.2);border-color:rgba(200,69,44,.6)}
+.bcard .sw{width:22px;height:22px;border-radius:4px;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.bcard .nm{font-size:12.5px;font-weight:580;font-family:var(--serif)}
+.bcard .px{font-size:10.5px;color:var(--txt3);margin-top:1px}
+.bcard .px b{color:var(--gold);font-weight:600}
+
+/* ── 底栏 ── */
+.bottombar{display:flex;align-items:center;gap:10px;padding:10px 14px;z-index:20}
+.bb-group{display:flex;gap:7px;flex:1}
+.bb-btn{padding:10px 16px;border-radius:6px;font-size:13px;font-family:var(--serif);letter-spacing:.12em;cursor:pointer;
+  border:1px solid var(--stroke);background:var(--card2);color:var(--txt2);transition:all .2s var(--ease)}
+.bb-btn:hover{background:rgba(226,214,178,.13);color:var(--txt)}
+.bb-btn.on{background:rgba(200,69,44,.24);border-color:rgba(200,69,44,.62);color:#f0d9c2}
+.bb-next{padding:12px 26px;border-radius:8px;font-size:15px;font-weight:700;font-family:var(--serif);letter-spacing:.24em;cursor:pointer;
+  border:1px solid rgba(232,180,150,.35);color:#fbeee2;transition:all .2s var(--ease);
+  background:linear-gradient(180deg,#c8452c,#96301d);box-shadow:0 6px 18px rgba(150,48,29,.45),inset 0 1px 0 rgba(255,255,255,.22)}
+.bb-next:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.bb-next:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ── 右侧六大板块 ── */
+.panel{position:fixed;top:12px;right:12px;bottom:12px;width:min(440px,95vw);z-index:50;
+  display:flex;flex-direction:column;transform:translateX(112%);transition:transform .4s var(--ease)}
+.panel.open{transform:none}
+.pn-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px}
+.pn-hd h2{font-size:14px;font-weight:620;letter-spacing:.05em}
+.pn-tabs{display:flex;gap:4px;padding:0 12px 10px;overflow-x:auto;scrollbar-width:none}
+.pn-tabs::-webkit-scrollbar{display:none}
+.pn-tab{padding:7px 12px;border-radius:6px;font-size:12.5px;color:var(--txt3);cursor:pointer;white-space:nowrap;
+  border:1px solid transparent;transition:all .2s var(--ease)}
+.pn-tab:hover{color:var(--txt2);background:rgba(226,214,178,.06)}
+.pn-tab.on{color:#f0e3c0;background:rgba(200,69,44,.22);border-color:rgba(200,69,44,.55)}
+.pn-sub{display:flex;gap:4px;padding:0 12px 10px}
+.pn-body{flex:1;overflow-y:auto;padding:2px 14px 16px}
+.pn-body::-webkit-scrollbar{width:7px}
+.pn-body::-webkit-scrollbar-thumb{background:rgba(216,180,90,.22);border-radius:4px}
+.card{background:rgba(226,214,178,.045);border:1px solid var(--stroke);border-radius:6px;padding:12px 13px;margin-bottom:9px;
+  animation:fade .34s var(--ease)}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.card h3{font-family:var(--serif);font-size:13.5px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:7px;
+  letter-spacing:.1em;color:#e6d3a2}
+.card h3::before{content:"";width:3px;height:13px;background:var(--seal);border-radius:1px;flex:0 0 auto}
+.card h3 .tag{font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(216,180,90,.12);color:var(--gold);
+  font-weight:500;letter-spacing:.05em;font-family:-apple-system,"PingFang SC",sans-serif}
+.row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:12.5px;
+  border-bottom:1px dashed rgba(216,180,90,.14);gap:10px}
+.row:last-child{border-bottom:none}
+.row .l{color:var(--txt2)}
+.row .r{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.muted{color:var(--txt3);font-size:11.5px;line-height:1.7}
+.btn{font-family:inherit;font-size:12px;padding:7px 12px;border-radius:6px;border:1px solid var(--stroke2);
+  background:rgba(226,214,178,.08);color:var(--txt);cursor:pointer;transition:all .2s var(--ease)}
+.btn:hover{background:rgba(226,214,178,.16);transform:translateY(-1px)}
+.btn:disabled{opacity:.36;cursor:not-allowed;transform:none}
+.btn.primary{background:linear-gradient(180deg,#c8452c,#96301d);border-color:rgba(232,180,150,.35);color:#fbeee2}
+.btn.danger{background:rgba(208,80,69,.16);border-color:rgba(208,80,69,.45);color:#e89a90}
+.btn.ghost{background:transparent;border-color:var(--stroke);color:var(--txt2)}
+.btn.sm{padding:5px 9px;font-size:11px;border-radius:5px}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.meter{margin:7px 0}
+.meter .top{display:flex;justify-content:space-between;font-size:11.5px;color:var(--txt2);margin-bottom:5px}
+.meter .track{height:7px;border-radius:3px;background:rgba(226,214,178,.1);overflow:hidden}
+.meter .fill{height:100%;border-radius:3px;transition:width .6s var(--ease),background .3s}
+.mini{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.mini .m{background:rgba(226,214,178,.04);border:1px solid var(--stroke);border-radius:5px;padding:9px 11px}
+.mini .m .k{font-size:10.5px;color:var(--txt3)}
+.mini .m .v{font-size:15px;font-weight:660;margin-top:3px;font-variant-numeric:tabular-nums;font-family:var(--serif)}
+.list-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px dashed rgba(216,180,90,.14)}
+.list-item:last-child{border-bottom:none}
+.avatar{width:30px;height:30px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:650;flex:0 0 auto;
+  font-family:var(--serif);box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.li-main{flex:1;min-width:0}
+.li-t{font-size:12.5px;font-weight:560}
+.li-s{font-size:10.5px;color:var(--txt3);margin-top:2px;line-height:1.5}
+.pill{font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--stroke2);background:rgba(226,214,178,.06)}
+select.sel{background:rgba(226,214,178,.08);color:var(--txt);border:1px solid var(--stroke);border-radius:5px;
+  padding:6px 8px;font-size:11.5px;font-family:inherit}
+.level{font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:4px}
+
+/* ── 汉堡菜单 ── */
+.menu{position:fixed;top:12px;left:12px;z-index:60;width:210px;padding:12px;transform:translateX(-125%);
+  transition:transform .34s var(--ease)}
+.menu.open{transform:none}
+.menu button{width:100%;text-align:left;margin-bottom:7px}
+.scrim{position:fixed;inset:0;background:rgba(4,8,6,.55);backdrop-filter:blur(6px);z-index:45;animation:fade .3s var(--ease)}
+
+/* ── 弹窗 · 红头公文纸 ── */
+.mask{position:fixed;inset:0;background:rgba(4,8,6,.7);backdrop-filter:blur(12px);z-index:80;
+  display:grid;place-items:center;padding:24px;animation:fade .3s var(--ease)}
+.modal{width:min(600px,100%);max-height:86vh;overflow-y:auto;padding:24px 26px;border-radius:4px;position:relative;
+  background:linear-gradient(175deg,#f6efdc,#ede3c8);
+  border:1px solid #b9a878;box-shadow:0 40px 100px rgba(0,0,0,.7),inset 0 0 60px rgba(92,74,38,.1);
+  animation:up .42s var(--ease);
+  --txt:#2b2822; --txt2:rgba(43,40,34,.68); --txt3:rgba(43,40,34,.46);
+  --card:rgba(43,40,34,.05); --card2:rgba(43,40,34,.08);
+  --stroke:rgba(43,40,34,.16); --stroke2:rgba(43,40,34,.3)}
+.modal::after{content:"";position:absolute;left:0;right:0;top:0;height:6px;
+  background:linear-gradient(180deg,var(--seal) 0 3px,transparent 3px 5px,var(--seal) 5px 6px)}
+@keyframes up{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+.modal::-webkit-scrollbar{width:7px}
+.modal::-webkit-scrollbar-thumb{background:rgba(43,40,34,.25);border-radius:4px}
+.modal .eyebrow{font-size:10.5px;letter-spacing:.22em;color:var(--seal);font-weight:700;font-family:var(--serif)}
+.modal h2{font-family:var(--serif);font-size:22px;font-weight:700;margin:7px 0 4px;color:#8c2f22;letter-spacing:.08em}
+.modal .date{font-size:11.5px;color:var(--txt3);margin-bottom:13px;letter-spacing:.05em}
+.modal p{font-size:13.5px;line-height:1.85;color:rgba(43,40,34,.82)}
+.modal p+p{margin-top:9px}
+.opts{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;padding:12px 14px;border-radius:5px;border:1px solid var(--stroke);
+  background:var(--card);cursor:pointer;transition:all .22s var(--ease);font-family:inherit;color:var(--txt)}
+.opt:hover{background:rgba(200,69,44,.07);border-color:rgba(200,69,44,.5);transform:translateX(3px)}
+.opt .ot{font-size:13.5px;font-weight:700;display:flex;justify-content:space-between;gap:10px;align-items:center;font-family:var(--serif)}
+.opt .od{font-size:11.5px;color:var(--txt3);margin-top:4px;line-height:1.6}
+.opt .cost{font-size:11px;color:#a3661f;white-space:nowrap;font-weight:700}
+.modal .btn{background:rgba(43,40,34,.07)}
+.modal .btn:hover{background:rgba(43,40,34,.14)}
+.modal .btn.primary{background:linear-gradient(180deg,#c8452c,#96301d);color:#fbeee2}
+.modal .btn.danger{background:rgba(208,80,69,.12);color:#a03428}
+.modal .btn.ghost{background:transparent;color:var(--txt2)}
+.score-tbl .r{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed rgba(43,40,34,.18)}
+.score-tbl .r .n{flex:0 0 88px;font-size:12.5px;color:var(--txt2);font-family:var(--serif)}
+.score-tbl .r .t{flex:1;height:7px;border-radius:3px;background:rgba(43,40,34,.12);overflow:hidden}
+.score-tbl .r .t i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#a3661f,#d8b45a)}
+.score-tbl .r .s{flex:0 0 50px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+.verdict{margin-top:14px;padding:13px 88px 13px 15px;border-radius:5px;background:rgba(43,40,34,.05);
+  border:1px solid var(--stroke);position:relative}
+.verdict .big{font-size:24px;font-weight:700;font-family:var(--serif)}
+/* ── 印章 ── */
+.seal{position:absolute;top:-12px;right:8px;width:64px;height:64px;border-radius:50%;
+  border:3px solid var(--seal);color:var(--seal);display:grid;place-items:center;
+  font-family:var(--serif);font-size:26px;font-weight:700;transform:rotate(-14deg);
+  background:rgba(200,69,44,.05);box-shadow:inset 0 0 0 2px rgba(200,69,44,.35);opacity:.88;
+  text-shadow:0 0 1px rgba(200,69,44,.6);animation:stamp .5s var(--ease) .25s backwards}
+@keyframes stamp{0%{transform:rotate(-14deg) scale(2.2);opacity:0}70%{transform:rotate(-14deg) scale(.94);opacity:.95}100%{transform:rotate(-14deg) scale(1);opacity:.88}}
+.seal.gold{border-color:#a3661f;color:#a3661f;background:rgba(163,102,31,.06);box-shadow:inset 0 0 0 2px rgba(163,102,31,.3)}
+.seal.ink{border-color:#3a362e;color:#3a362e;background:rgba(58,54,46,.05);box-shadow:inset 0 0 0 2px rgba(58,54,46,.3)}
+.toast{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:99;padding:10px 18px;border-radius:5px;
+  background:rgba(16,24,20,.95);border:1px solid rgba(216,180,90,.45);backdrop-filter:blur(16px);font-size:12.5px;
+  color:#ecdfbe;box-shadow:0 16px 44px rgba(0,0,0,.55);animation:drop .4s var(--ease);font-family:var(--serif);letter-spacing:.04em}
+@keyframes drop{from{opacity:0;transform:translate(-50%,-16px)}to{opacity:1;transform:translate(-50%,0)}}
+/* ── 收支瀑布 ── */
+.wf-row{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.wf-row .lb{flex:0 0 52px;font-size:11px;color:var(--txt3);text-align:right}
+.wf-bar{flex:1;height:16px;border-radius:8px;background:rgba(255,255,255,.07);overflow:hidden;display:flex}
+.wf-bar i{display:block;height:100%;transition:width .5s var(--ease)}
+.wf-row .vv{flex:0 0 78px;font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.wf-lg{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.wf-lg span{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--txt3)}
+.wf-lg i{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+.wf{width:100%;height:150px;display:block;margin:2px 0 4px}
+/* ── 预警 ── */
+.warn-card{border-color:rgba(208,80,69,.55)!important;background:rgba(208,80,69,.12)!important}
+.warn-card h3{color:#e89a90}
+.modal .warn-card{border-color:rgba(160,52,40,.6)!important;background:rgba(200,69,44,.08)!important}
+.modal .warn-card h3{color:#8c2f22}
+/* ── 新手引导 · 御批便签 ── */
+.tut{position:fixed;left:50%;transform:translateX(-50%) rotate(-.5deg);bottom:88px;z-index:55;width:min(430px,92vw);
+  padding:13px 15px;border-radius:3px;background:linear-gradient(175deg,#f6efdc,#ede3c8);border:1px dashed rgba(160,52,40,.65);
+  box-shadow:0 20px 50px rgba(0,0,0,.55);animation:fade .35s var(--ease);
+  --txt:#2b2822; --txt2:rgba(43,40,34,.68); --txt3:rgba(43,40,34,.5); --stroke:rgba(43,40,34,.16); --stroke2:rgba(43,40,34,.3)}
+.tut .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tut .stp{font-size:10.5px;color:#a03428;letter-spacing:.16em;font-family:var(--serif);font-weight:700}
+.tut .t{font-size:13.5px;font-weight:700;font-family:var(--serif);color:#4a3a1c;letter-spacing:.06em}
+.tut .d{font-size:12px;color:var(--txt2);line-height:1.7;margin-top:4px}
+.tut .pg{display:flex;gap:4px;margin-top:10px}
+.tut .pg i{flex:1;height:3px;border-radius:2px;background:rgba(43,40,34,.14)}
+.tut .pg i.on{background:#a03428}
+.hl{animation:hlp 1.4s ease-in-out infinite;border-radius:8px}
+@keyframes hlp{0%,100%{box-shadow:0 0 0 0 rgba(216,180,90,.75)}50%{box-shadow:0 0 0 9px rgba(216,180,90,0)}}
+/* ── 存档档位 ── */
+.slot{display:flex;align-items:center;gap:8px;padding:11px;border-radius:5px;margin-bottom:8px;
+  background:var(--card);border:1px solid var(--stroke)}
+.slot .info{flex:1;min-width:0}
+.slot .info .t{font-size:13px;font-weight:580}
+.slot .info .s{font-size:11px;color:var(--txt3);margin-top:2px}
+.gal{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--stroke)}
+.gal:last-child{border-bottom:none}
+.gal .gb{flex:1;min-width:0}
+.gal .gt{font-size:13px;font-weight:580}
+.gal .gs{font-size:11px;color:var(--txt3);margin-top:2px}
+
+/* ══ 响应式：三端视图层（断点由 JS 检测后写入 body[data-dev]） ══ */
+:root{ --cs:30px; --gap:3px; }
+/* ── 移动端 <768px：贴近原版竖屏手游，底栏等宽、面板为底部抽屉 ── */
+body[data-dev="mobile"] .app{padding:8px;gap:7px}
+body[data-dev="mobile"] .topbar{padding:8px 10px;gap:8px}
+body[data-dev="mobile"] .tb-title{min-width:0}
+body[data-dev="mobile"] .tb-title .rank{font-size:14px}
+body[data-dev="mobile"] .tb-title .meta{font-size:10.5px}
+body[data-dev="mobile"] .tb-stats{gap:5px}
+body[data-dev="mobile"] .st{min-width:0;padding:5px 9px}
+body[data-dev="mobile"] .st .v{font-size:12.5px}
+body[data-dev="mobile"] .st:nth-child(n+3){display:none}
+body[data-dev="mobile"] .map{padding:7px}
+body[data-dev="mobile"] .cell{font-size:calc(var(--cs)*0.46)}
+body[data-dev="mobile"] .drawer{left:6px;right:6px;bottom:6px;padding:10px}
+body[data-dev="mobile"] .dw-list{grid-template-columns:repeat(2,1fr)}
+body[data-dev="mobile"] .bottombar{padding:8px 10px;gap:7px}
+body[data-dev="mobile"] .bb-group{gap:5px}
+body[data-dev="mobile"] .bb-btn{flex:1;padding:11px 2px;font-size:12px;text-align:center}
+body[data-dev="mobile"] .bb-next{padding:11px 14px;font-size:13px}
+body[data-dev="mobile"] .panel{top:auto;left:0;right:0;bottom:0;width:100%;height:88vh;
+  border-radius:22px 22px 0 0;transform:translateY(106%)}
+body[data-dev="mobile"] .panel.open{transform:none}
+body[data-dev="mobile"] .pn-tab{padding:8px 12px;font-size:13px}
+body[data-dev="mobile"] .card{padding:11px}
+body[data-dev="mobile"] .modal{padding:18px}
+body[data-dev="mobile"] .stage-tip{font-size:10.5px;bottom:6px;padding:5px 11px}
+body[data-dev="mobile"] .menu{width:180px}
+/* ── 平板 768–1024px：侧栏加宽、指标保留三项 ── */
+body[data-dev="tablet"] .app{max-width:940px}
+body[data-dev="tablet"] .panel{width:min(520px,74vw)}
+body[data-dev="tablet"] .st:nth-child(n+4){display:none}
+body[data-dev="tablet"] .dw-list{grid-template-columns:repeat(3,1fr)}
+body[data-dev="tablet"] .bb-btn{padding:10px 13px}
+/* ── 桌面 >1024px：完整信息密度 ── */
+body[data-dev="desktop"] .app{max-width:1200px}
+@media (max-width:420px){
+  body[data-dev="mobile"] .bb-btn{font-size:11.5px;padding:11px 0}
+  body[data-dev="mobile"] .tb-title .meta{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar glass">
+    <button class="icon-btn" id="btnMenu">☰</button>
+    <div class="tb-title">
+      <div class="rank" id="rankName">—</div>
+      <div class="meta" id="dateTxt">—</div>
+    </div>
+    <div class="tb-stats" id="stats"></div>
+    <button class="icon-btn plus" id="btnPlus">＋</button>
+  </header>
+
+  <main class="stage glass">
+    <div class="map" id="map"></div>
+    <div class="stage-tip" id="stageTip"></div>
+    <div class="drawer glass" id="drawer"></div>
+  </main>
+
+  <footer class="bottombar glass">
+    <div class="bb-group">
+      <button class="bb-btn" data-bb="build">建造</button>
+      <button class="bb-btn" data-bb="demolish">拆除</button>
+      <button class="bb-btn" data-bb="layer">图层</button>
+      <button class="bb-btn" data-bb="view">查看</button>
+    </div>
+    <button class="bb-next" id="nextBtn">下月 ›</button>
+  </footer>
+</div>
+
+<div class="menu glass" id="menu"></div>
+<aside class="panel glass" id="panel"></aside>
+
+<script>
+"use strict";
+/* ================= 1. 常量：用地类型（价格沿用同类游戏“每格”计价） ================= */
+const COLS = 16, ROWS = 10;
+const CELLS = {
+  empty:   {n:"空地",      cat:"-",    c:"#ddd2b4", cost:0,  up:0,   sig:""},
+  flat:    {n:"安置房",    cat:"res",  c:"#c9a86a", cost:8,  up:1.5, cap:300, tax:5,  live:-1.5, sig:"安", d:"容量大、宜居差"},
+  comm:    {n:"住宅小区",  cat:"res",  c:"#bd8f56", cost:14, up:2.5, cap:180, tax:10, live:0,    sig:"住", d:"均衡的主力住宅"},
+  villa:   {n:"别墅区",    cat:"res",  c:"#d6c391", cost:22, up:4,   cap:100, tax:18, live:2,    sig:"墅", d:"税高宜居，占地费"},
+  street:  {n:"沿街商业",  cat:"com",  c:"#a89a7e", cost:15, up:2,   jobs:80,  tax:12, sig:"街", d:"岗位 80"},
+  plaza:   {n:"广场商业",  cat:"com",  c:"#8fada0", cost:25, up:3,   jobs:140, tax:20, sig:"场", d:"岗位 140"},
+  mall:    {n:"商业综合体",cat:"com",  c:"#7f9cab", cost:40, up:5,   jobs:230, tax:34, sig:"综", d:"岗位 230，需人气"},
+  light:   {n:"轻工业",    cat:"ind",  c:"#97ac8e", cost:15, up:3,   jobs:150, tax:22, live:-1.5, sig:"轻", d:"岗位 150，轻污染"},
+  heavy:   {n:"重工业",    cat:"ind",  c:"#8b8f8a", cost:28, up:5,   jobs:280, tax:34, live:-3.5, sig:"重", d:"岗位 280，重污染"},
+  hitech:  {n:"高新技术",  cat:"ind",  c:"#6f96a6", cost:35, up:6,   jobs:170, tax:48, live:-1,   sig:"高", d:"税基最高，需教育 50"},
+  park:    {n:"城市公园",  cat:"park", c:"#a9b97e", cost:6,  up:1,   live:3,   sig:"园", d:"宜居 +3"},
+  wet:     {n:"生态湿地",  cat:"park", c:"#8fb3a0", cost:12, up:2,   live:6,   sig:"湿", d:"宜居 +6"},
+  school:  {n:"学校",      cat:"pub",  c:"#c48d76", cost:30, up:5,   edu:9,    sig:"学", d:"教育 +9"},
+  hospital:{n:"医院",      cat:"pub",  c:"#c99a8b", cost:36, up:6,   med:10,   sig:"医", d:"医疗 +10"}
+};
+const GROUPS = [
+  {k:"res",  n:"住宅", ks:["flat","comm","villa"]},
+  {k:"com",  n:"商业", ks:["street","plaza","mall"]},
+  {k:"ind",  n:"工业", ks:["light","heavy","hitech"]},
+  {k:"pub",  n:"市政", ks:["school","hospital"]},
+  {k:"park", n:"生态", ks:["park","wet"]}
+];
+const LAYERS = [
+  {k:"land",  n:"用地"}, {k:"live", n:"宜居"}, {k:"tax", n:"收益"}, {k:"people", n:"人口"}
+];
+/* ── 响应式断点（集中可配）：<768 移动端｜768–1024 平板端｜>1024 桌面端 ── */
+const BREAK = { mobile:768, tablet:1024 };
+const LAYOUT = {
+  mobile:  {cs:20, gap:2, name:"移动端", hint:"竖屏手游布局，面板为底部抽屉"},
+  tablet:  {cs:26, gap:3, name:"平板端", hint:"侧栏加宽，保留三项核心指标"},
+  desktop: {cs:30, gap:3, name:"桌面端", hint:"完整信息密度，16×10 网格全显"}
+};
+let DEV = "desktop", DEV_LOCK = null;   // DEV_LOCK=null 表示自动检测
+function detectDev(){
+  const w = (typeof window !== "undefined" && window.innerWidth) || 1280;
+  return w < BREAK.mobile ? "mobile" : w <= BREAK.tablet ? "tablet" : "desktop";
+}
+// 移动端按屏宽自适应格子尺寸，保证 16 列完整可见不出现横向滚动
+function fitCs(gap){
+  const w = (typeof window !== "undefined" && window.innerWidth) || 375;
+  return clamp(Math.floor((w - 56 - (COLS-1)*gap) / COLS), 13, LAYOUT.mobile.cs);
+}
+function applyDevice(force){
+  const dev = DEV_LOCK || detectDev();
+  if(dev === DEV && !force) return;
+  const changed = DEV !== dev; DEV = dev;
+  const L = LAYOUT[dev];
+  const cs = dev === "mobile" ? fitCs(L.gap) : L.cs;
+  if(typeof document !== "undefined"){
+    if(document.body && document.body.dataset) document.body.dataset.dev = dev;
+    const rs = document.documentElement && document.documentElement.style;
+    if(rs && rs.setProperty){ rs.setProperty("--cs", cs+"px"); rs.setProperty("--gap", L.gap+"px"); }
+  }
+  // 保存并恢复滚动位置与面板状态，不刷新页面、不重建业务状态
+  const body = document.querySelector(".pn-body");
+  const sc = body ? body.scrollTop : 0;
+  const stage = document.querySelector(".stage");
+  const ss = stage ? {l:stage.scrollLeft, t:stage.scrollTop} : null;
+  // 网格尺寸由 CSS 变量 --cs/--gap 驱动，切换时不重建 DOM，状态与事件绑定零丢失
+  if(typeof render === "function") render();
+  const nb = document.querySelector(".pn-body");
+  if(nb && sc) nb.scrollTop = sc;
+  if(stage && ss){ stage.scrollLeft = ss.l; stage.scrollTop = ss.t; }
+  if(changed && typeof toast === "function") toast(`布局：${L.name}`);
+}
+
+const RANKS = [
+  {n:"镇长", need:2, line:43, pay:70,  scale:1.00},
+  {n:"县长", need:2, line:49, pay:90,  scale:1.10},
+  {n:"区长", need:3, line:55, pay:120, scale:1.22},
+  {n:"市长", need:3, line:61, pay:160, scale:1.36},
+  {n:"封疆", need:99,line:99, pay:230, scale:1.55}
+];
+const CITY_A = ["云川","临江","安平","青屏","沅陵","朔城","榕荫","白鹭","鹤鸣","滟洲","葛林","永定"];
+const CITY_B = ["县","区","市","新区","州","镇"];
+const SURNAME = ["沈","陆","顾","苏","江","周","林","程","祁","温","贺","薛","孟","宁","卓"];
+const GIVEN = ["砚清","知远","明轩","静姝","嘉禾","思远","照野","望舒","承宇","子聿","若谷","长庚","砚舟","倬然","允中"];
+const SECTORS = [
+  {n:"装备制造"},{n:"电子信息"},{n:"新材料"},{n:"现代物流"},{n:"商贸服务"},{n:"生物医药"},{n:"文旅康养"}
+];
+const BIZ_TIER = [
+  {n:"小微", cost:120, tax:[18,32],  jobs:[40,70],  life:[16,30]},
+  {n:"骨干", cost:300, tax:[45,70],  jobs:[90,140], life:[22,40]},
+  {n:"龙头", cost:640, tax:[95,140], jobs:[200,300], life:[30,52]}
+];
+const DEPTS = [
+  {k:"fis", n:"财政口", d:"税收效率"}, {k:"urb", n:"城建口", d:"建设成本"},
+  {k:"civ", n:"民生口", d:"教育医疗"}, {k:"ind", n:"产业口", d:"招商成功"}
+];
+const POSTS = ["局长","主任","书记","副职"];
+/* ================= 2. 事件池（金额单位：万元） ================= */
+const EVENTS = [
+  {t:"房企暴雷，项目停工", d:"本地一家房企资金链断裂，两个在建楼盘停工，业主开始聚集。预售资金监管账户里还有一笔钱。",
+   o:[{t:"动用监管资金保交楼", d:"钱先用于复工，业主情绪稳住，但后续财政兜底压力上升。", e:{mor:6, cash:-180, hidden:60, int:-1}},
+      {t:"引入平台公司接盘", d:"让平台公司接盘续建，债务从企业表转到政府表。", e:{mor:3, hidden:380, int:-1}},
+      {t:"按法律程序慢慢来", d:"坚持市场化处置，风险不进财政，但业主上访不断。", e:{mor:-9, clue:1}}]},
+  {t:"环保督察组进驻", d:"督察组发现工业片区排放超标，要求限期整改并约谈主要负责人。",
+   o:[{t:"关停整改一批企业", d:"短期税收与就业受损，长期宜居回升。", e:{cash:-120, mor:4, liv:5, industr:-0.12}},
+      {t:"上环保设施，政府补贴一半", d:"花钱保产能，财政吃紧但企业留下。", e:{cash:-280, liv:2}},
+      {t:"先应付检查，后续再说", d:"数据可以做漂亮，风险记在账上。", e:{int:-6, clue:2, liv:-2}}]},
+  {t:"教师集体讨薪", d:"绩效工资拖欠三个月，部分教师准备联名信访。三保支出里，保工资是硬约束。",
+   o:[{t:"立刻筹措资金补发", d:"财政压力立刻体现，但队伍稳住、口碑加分。", e:{cash:-320, mor:7, edu:3}},
+      {t:"分批补发，先发一半", d:"折中方案，情绪平复一半。", e:{cash:-160, mor:2}},
+      {t:"拖一拖，等转移支付", d:"上级资金不一定来。", e:{mor:-8, edu:-4, clue:1}}]},
+  {t:"专项债额度下达", d:"上级下达一批专项债额度，要求形成实物工作量，且必须投向白名单项目。",
+   o:[{t:"申报产业园区基础设施", d:"有现金流的项目，债务可控。", e:{debt:420, cash:420, industr:0.06}},
+      {t:"申报景观工程与广场", d:"好看、见效快，但没有现金流。", e:{debt:500, cash:500, liv:2, mor:2, int:-2}},
+      {t:"放弃额度", d:"不举债，也不发展。", e:{mor:-2}}]},
+  {t:"龙头企业要搬迁", d:"一家纳税大户暗示邻市给了更优惠的条件，等你表态。",
+   o:[{t:"给足补贴与用地留住", d:"财政让利换产能与就业。", e:{cash:-240, mor:2, industr:0.05}},
+      {t:"给政策不给钱", d:"服务换人心，看运气。", e:{mor:-3}},
+      {t:"好聚好散", d:"腾出土地指标，税基流失。", e:{industr:-0.08, mor:-4}}]},
+  {t:"老旧小区改造", d:"上级有专项资金，但需要地方配套，改造期间居民意见很大。",
+   o:[{t:"争取资金，全额配套", d:"花钱买口碑，居住品质实打实提升。", e:{cash:-210, mor:8, liv:4}},
+      {t:"只做基础类改造", d:"管网和外墙，钱花得少。", e:{cash:-75, mor:3, liv:2}},
+      {t:"暂不申报", d:"省下钱，错过窗口期。", e:{mor:-4}}]},
+  {t:"信访积案化解", d:"一件拖了六年的征地拆迁积案，当事人每周来一次。",
+   o:[{t:"依法依规补偿到位", d:"花钱买平安，也立了规矩。", e:{cash:-150, mor:5, int:2}},
+      {t:"协调变通处理", d:"灵活，但留下了口子。", e:{cash:-60, mor:1, int:-3, clue:1}},
+      {t:"维持原处理意见", d:"成本最低，风险最高。", e:{mor:-6, clue:2}}]},
+  {t:"统计核查", d:"上级统计核查组在查工业产值，你辖区的增速有点好看过头了。",
+   o:[{t:"如实核减水分", d:"增速掉下来，但账本干净。", e:{industr:-0.05, int:5, mor:1}},
+      {t:"解释口径差异", d:"技术性处理，双方都留面子。", e:{int:-2}},
+      {t:"想办法把数据做实", d:"把明年的提前记到今年，风险往后推。", e:{int:-7, clue:2, industr:0.04}}]},
+  {t:"突发汛情", d:"连续强降雨，城区低洼地段内涝，两处老旧挡墙出现险情。",
+   o:[{t:"全力抢险，财政兜底", d:"花钱买安全，舆情平稳。", e:{cash:-180, mor:6}},
+      {t:"按预案常规处置", d:"资源有限，能做到哪算哪。", e:{cash:-60, mor:-2}},
+      {t:"隐瞒险情，避免问责", d:"万一出事，就是大事。", e:{int:-8, clue:2, mor:-5}}]},
+  {t:"人才公寓要不要建", d:"新引进的产业人才反映租房太贵，人社局报上来一个人才公寓方案。",
+   o:[{t:"建，配套产业招商", d:"先投入后收益，抢人窗口期有限。", e:{cash:-260, industr:0.05, mor:3}},
+      {t:"改发租房补贴", d:"轻资产，见效快，但钱花了留不下资产。", e:{cash:-100, mor:2}},
+      {t:"暂缓", d:"钱要用在刀刃上。", e:{mor:-3, industr:-0.02}}]},
+  {t:"平台公司要借新还旧", d:"平台公司一笔债下月到期，账面没钱，只能借新还旧或者展期。",
+   o:[{t:"同意借新还旧", d:"风险后移，债务总量不变。", e:{hidden:220, int:-1}},
+      {t:"财政资金偿还一部分", d:"真金白银化债，财政更紧。", e:{cash:-300, hidden:-260, int:2}},
+      {t:"申请债务重组展期", d:"伤信用，但换时间。", e:{hidden:-120, hiddenRate:0.001, int:-2, mor:-2}}]},
+  {t:"网红打卡点燃了", d:"辖区一处老街区突然在短视频上火了，游客爆满，居民投诉噪音和垃圾。",
+   o:[{t:"顺势做文旅街区", d:"投一点钱，把流量变税源。", e:{cash:-130, industr:0.04, mor:3, liv:-1}},
+      {t:"加强管理限流", d:"保居民安静，放弃一部分收益。", e:{mor:2, liv:1}},
+      {t:"装作没看见", d:"热度会自己过去。", e:{mor:-3}}]},
+  {t:"医院设备老化", d:"县医院一批设备超期服役，医生反映影响诊断，近期已有两起纠纷。",
+   o:[{t:"财政出资更新", d:"花钱买医疗能力。", e:{cash:-240, med:8, mor:4}},
+      {t:"申请上级专项", d:"等钱，不一定等到。", e:{med:2}},
+      {t:"先修，能撑一年", d:"便宜，但治标。", e:{cash:-60, med:-2}}]},
+  {t:"违规吃喝被拍", d:"一桌饭被人拍了发到网上，虽然钱是老板付的。",
+   o:[{t:"主动上报并退赔", d:"认错从宽，代价是面子。", e:{int:4, mor:3, cash:-30}},
+      {t:"内部处理，压下来", d:"火压下去了，炭还在。", e:{int:-5, clue:2}},
+      {t:"等舆情过去", d:"互联网有记忆。", e:{int:-3, mor:-4, clue:1}}]},
+  {t:"土地指标收紧", d:"上级收紧建设用地指标，今年新增用地指标只剩一点点。",
+   o:[{t:"盘活存量低效用地", d:"难，但可持续。", e:{cash:-90, liv:2, industr:0.03}},
+      {t:"找指标交易平台买", d:"花钱买空间。", e:{cash:-210}},
+      {t:"先停一批项目", d:"收缩战线。", e:{industr:-0.05, mor:-2}}]},
+  {t:"农业转移人口进城", d:"一批外来务工人员想落户，需要学位、医疗和保障房。",
+   o:[{t:"全面放开并配套", d:"人口是税基，也是包袱。", e:{pop:300, cash:-180, mor:3}},
+      {t:"放开落户，配套慢慢补", d:"先要人，后补账。", e:{pop:260, mor:-4, edu:-3, med:-3}},
+      {t:"设门槛，控制节奏", d:"稳，但错过人口红利。", e:{mor:-2}}]},
+  {t:"上级巡察组进驻", d:"巡察组来了，重点查债务、工程招投标和作风建设。",
+   o:[{t:"全面自查自纠", d:"主动暴露问题，换从轻处理。", e:{int:3, cash:-90, hidden:-90}},
+      {t:"配合但不主动", d:"常规动作。", e:{}},
+      {t:"安排接待做周全", d:"可能适得其反。", e:{int:-6, clue:2, cash:-60}}]},
+  {t:"企业排污被举报", d:"一家纳税大户夜间偷排，举报人是厂区下游的村民。",
+   o:[{t:"顶格处罚并停产", d:"税源受损，民心回来了。", e:{industr:-0.06, mor:5, liv:3, int:2}},
+      {t:"罚款了事", d:"各打五十大板。", e:{cash:90, mor:-3, liv:-1}},
+      {t:"让企业与村民私了", d:"快，但留下了把柄。", e:{int:-5, clue:2, mor:-2}}]},
+  {t:"高考成绩下滑", d:"辖区重点中学本科率连续两年下滑，家长群情激奋。",
+   o:[{t:"重金引进名师与校长", d:"见效慢，但方向对。", e:{cash:-210, edu:8, mor:4}},
+      {t:"抓应试，加课时", d:"数据会好看一些。", e:{edu:3, mor:-2}},
+      {t:"回应称系生源波动", d:"没人买账。", e:{mor:-5, edu:-2}}]},
+  {t:"轨道交通选线", d:"上级规划的线路经过辖区，站点位置有争取空间。",
+   o:[{t:"争取两站并配套开发", d:"要配套出资，但沿线价值起来。", e:{cash:-360, industr:0.07, liv:2}},
+      {t:"争取一站", d:"少花钱，少收益。", e:{cash:-150, industr:0.03}},
+      {t:"不争取", d:"线路照修，站不在这。", e:{mor:-3}}]},
+  {t:"退休金发放压力", d:"人口老龄化加剧，社保当期收支缺口开始显现。",
+   o:[{t:"财政补贴社保", d:"刚性支出又多一块。", e:{cash:-210, mor:5}},
+      {t:"提高缴费基数", d:"企业会有意见。", e:{mor:-3, industr:-0.03, cash:120}},
+      {t:"向上求援", d:"等转移支付。", e:{mor:1}}]},
+  {t:"开发商想改规划", d:"一个开发商希望把已批的工业用地改为住宅，愿意向地方捐一笔“贡献”。",
+   o:[{t:"坚决按规划办", d:"规矩立住了。", e:{int:3, mor:2, cash:-60}},
+      {t:"走程序公开调整", d:"阳光操作，收益归公。", e:{cash:180, liv:1}},
+      {t:"私下允诺，收好处", d:"钱来得快，风险来得也快。", e:{cash:280, int:-10, clue:3}}]},
+  {t:"舆情：摊贩与城管", d:"一段执法视频在网上发酵，摊贩是本地下岗工人。",
+   o:[{t:"柔性执法，划定经营区", d:"有温度，也有管理成本。", e:{cash:-75, mor:6}},
+      {t:"严格执法不妥协", d:"秩序优先。", e:{mor:-5, liv:1}},
+      {t:"处理涉事队员以平息", d:"丢车保帅。", e:{mor:2, int:-2}}]},
+  {t:"对口支援任务", d:"上级要求对口支援一个欠发达地区，需要出人出钱。",
+   o:[{t:"超额完成", d:"政治分有了，钱包瘪了。", e:{cash:-180, int:4}},
+      {t:"按标准完成", d:"本分。", e:{cash:-75, int:1}},
+      {t:"请求减免", d:"上级会记住。", e:{int:-3, cash:-30}}]},
+  {t:"数字化治理项目", d:"一家科技公司推销城市大脑方案，报价不低，说是能提升治理效率。",
+   o:[{t:"全城部署", d:"效率提升，债务上升。", e:{cash:-320, debt:180, industr:0.03, int:1}},
+      {t:"先做一个试点", d:"小步试错。", e:{cash:-100}},
+      {t:"拒绝", d:"省钱，也可能落后。", e:{}}]},
+  {t:"省领导专题调研", d:"省里领导率队调研产业转型，点名要看园区和企业，还可能随机进车间问一线工人。",
+   o:[{t:"实景实报，不彩排不布景", d:"可能被挑出毛病，但赢得了信任。", e:{cash:-40, mor:2, int:3, opin:-4}},
+      {t:"精心布置路线与展板", d:"花钱买观感，万一被看穿就难堪。", e:{cash:-150, mor:3, int:-4, clue:1}},
+      {t:"重点汇报困难与化债进展", d:"讲问题也要有水平，讲好了是加分项。", e:{cash:-30, int:2, mor:1, opin:-2}}]},
+  {t:"上级民生专项督查", d:"督查组重点查教育医疗投入、保障房分配和欠薪问题，检索台账后要约谈分管干部。",
+   o:[{t:"如实提供台账，当场认领问题", d:"态度端正，整改花钱。", e:{cash:-140, mor:5, int:3, opin:-5}},
+      {t:"补充材料后再报", d:"争取时间，材料要圆。", e:{cash:-50, int:-2, opin:2}},
+      {t:"把责任推给历史遗留", d:"说得过去，但督查组记下了。", e:{int:-5, clue:2, opin:4}}]},
+  {t:"一件上级批示件", d:"一件拖了三年的拆迁安置积案被上级领导批示，要求一个月内办结并回报。",
+   o:[{t:"特事特办，资金一步到位", d:"钱花得多，但批示件办得漂亮。", e:{cash:-260, mor:6, int:2, opin:-6}},
+      {t:"分期兑现，先安置后补偿", d:"务实稳妥，当事人能接受。", e:{cash:-120, mor:3, opin:-2}},
+      {t:"先答复口径，拖着慢慢办", d:"批示件拖着办，性质就变了。", e:{mor:-8, int:-4, clue:2, opin:7}}]},
+  {t:"同级参观团来取经", d:"邻市组团来学习城市更新经验，接待规格和汇报口径都要拿捏分寸。",
+   o:[{t:"开放参观，坦诚交流", d:"格局打开了，同行是冤家也是镜子。", e:{cash:-45, mor:2, int:1}},
+      {t:"只看亮点，不看短板", d:"面子工程成本不低。", e:{cash:-110, mor:2, int:-2}},
+      {t:"婉言谢绝", d:"省了钱，也少了个展示窗口。", e:{mor:-2}}]}
+];
+const DYN_TPL = [
+  {t:"{city}的{sector}产业出现订单下滑", d:"近三个月，{city}{sector}行业订单同比下滑 {n}%，几家企业开始减产，就业岗位承压。",
+   o:[{t:"出台稳岗补贴", d:"财政出钱保岗位。", e:{cash:-140, mor:3}},
+      {t:"组织产销对接会", d:"花钱少，见效不确定。", e:{cash:-35}},
+      {t:"不干预，交给市场", d:"产能出清有阵痛。", e:{mor:-4, industr:-0.03}}]},
+  {t:"{city}出现用工荒", d:"多家企业反映招不到人，{sector}行业缺口约 {n} 人，人社局建议出台引工政策。",
+   o:[{t:"发放引工奖励", d:"花钱抢人。", e:{cash:-120, industr:0.05}},
+      {t:"对接职业院校定向培养", d:"慢，但稳。", e:{cash:-55, edu:2}},
+      {t:"由企业自行加薪解决", d:"成本转嫁给企业。", e:{mor:-2, industr:-0.02}}]},
+  {t:"{post}被实名举报", d:"一封实名举报信指向{full}的干部，反映其在项目审批中打招呼。",
+   o:[{t:"立即停职核查", d:"宁可错停，不可错过。", e:{int:4, mor:3, industr:-0.03}},
+      {t:"先谈话提醒", d:"留有余地。", e:{int:-2, clue:1}},
+      {t:"压件不办", d:"举报人会继续往上走。", e:{int:-6, clue:2}}]},
+  {t:"{city}房价异动", d:"上个月新建商品住宅价格环比变动 {n}%，市场预期开始分化。",
+   o:[{t:"出台稳市场政策", d:"托市需要真金白银。", e:{cash:-150, mor:2}},
+      {t:"加强预售资金监管", d:"防风险优先。", e:{int:2, mor:1}},
+      {t:"不干预", d:"让市场自己找底。", e:{mor:-3}}]},
+  {t:"上级部署新考核指标", d:"新一年度考核体系调整，{sector}相关指标权重上升，同时新增“财政可持续”扣分事项。",
+   o:[{t:"对标新指标调整工作", d:"跟着指挥棒走。", e:{cash:-90, int:2}},
+      {t:"保持既有节奏", d:"以不变应万变。", e:{mor:-1}},
+      {t:"在数据口径上想办法", d:"风险自担。", e:{int:-5, clue:2}}]},
+  {t:"{city}一处工地发生安全事故", d:"在建工地发生一起安全事故，造成人员伤亡，调查组已经进场。",
+   o:[{t:"全面停工排查", d:"代价大，态度硬。", e:{cash:-180, mor:4, int:2}},
+      {t:"只停涉事标段", d:"范围小，风险在。", e:{cash:-60, mor:-1}},
+      {t:"尽快复工抢工期", d:"进度优先。", e:{mor:-7, int:-5, clue:2}}]},
+  {t:"审计发现资金闲置", d:"审计指出有 {n} 万专项资金趴在账上两年没用出去，要求说明情况。",
+   o:[{t:"抓紧安排到项目上", d:"钱要用在刀刃上。", e:{cash:90, industr:0.03}},
+      {t:"按规定上缴收回", d:"规矩，但可惜。", e:{cash:-120, int:2}},
+      {t:"做材料解释原因", d:"能拖一阵。", e:{int:-3, clue:1}}]},
+  {t:"{city}要办一场大型活动", d:"一场能带来曝光的大型活动有机会落地{city}，但要地方承担大部分费用。",
+   o:[{t:"办，全力争取曝光", d:"形象收益不确定，支出确定。", e:{cash:-210, mor:4, industr:0.03}},
+      {t:"办小规模版本", d:"控制风险。", e:{cash:-75, mor:1}},
+      {t:"不办", d:"省钱最实在。", e:{mor:-2}}]},
+  {t:"邻市出台强力人才政策", d:"邻市宣布给硕博发 {n} 万安家费，你辖区几家企业在打听会不会跟进。",
+   o:[{t:"跟进同等政策", d:"军备竞赛，财政承压。", e:{cash:-180, industr:0.05, edu:3}},
+      {t:"差异化：聚焦产业急需", d:"钱少，精度高。", e:{cash:-75, industr:0.03}},
+      {t:"不跟进", d:"人才会流向邻市。", e:{industr:-0.04, edu:-2}}]},
+  {t:"{city}菜市场的改造之争", d:"老菜市场要改造升级，摊主担心摊位费上涨，居民担心买菜变贵。",
+   o:[{t:"改造并保留平价摊位", d:"民生优先。", e:{cash:-130, mor:6}},
+      {t:"市场化改造", d:"交给企业运营。", e:{cash:60, mor:-4}},
+      {t:"维持现状", d:"矛盾积累。", e:{mor:-3}}]},
+  {t:"{city}迎来一轮集中调研", d:"本月共有 {n} 批调研组到访{city}，主题覆盖产业、民生与化债，接待与汇报占去班子大半日程。",
+   o:[{t:"逐批高标准接待", d:"人力财力都紧张，但态度到位。", e:{cash:-130, mor:2, int:1, opin:-2}},
+      {t:"合并接待、精简流程", d:"务实，个别部门会有微词。", e:{cash:-45, mor:1}},
+      {t:"让分管副职出面", d:"主要领导精力留给发展。", e:{mor:-3, opin:2}}]}
+];
+
+/* ================= 3. 状态 ================= */
+let S = null;
+let TOOL = "comm", MODE = "build", LAYER = "land", GROUP = "res";
+let PANEL = false, PTAB = "need", SUB = "plan", BUSY = false;
+
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const ri = (a,b) => Math.floor(a + Math.random()*(b-a+1));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const fmt = n => (Math.round(n*10)/10).toLocaleString("zh-CN");
+const money = n => (n<0?"−":"") + "¥" + fmt(Math.abs(n));
+const pct = n => fmt(n) + "%";
+const C = {good:"#5ba583", warn:"#d9a441", bad:"#d05045", seal:"#c8452c", cyan:"#74b3a4", gold:"#d8b45a"};
+const col = (v,g,b) => v>=g?C.good : v>=b?C.warn : C.bad;
+function toast(msg){
+  const t = document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.transition="opacity .4s";t.style.opacity=0;setTimeout(()=>t.remove(),400)},1900);
+}
+
+/* ================= 存档 / 履历馆 ================= */
+const SAVE_VER = 1;
+const KEY = {auto:"shoutu_auto_v1", slot:"shoutu_slots_v1", gal:"shoutu_gallery_v1"};
+function lsGet(k, fb){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+function packS(){ return {v:SAVE_VER, S, ui:{TOOL, MODE, LAYER, GROUP, DEV_LOCK}, t:Date.now()}; }
+function unpack(p){
+  if(!p || p.v !== SAVE_VER || !p.S) return false;
+  S = p.S;
+  S.tut = S.tut || {on:false, step:0};
+  S.tutSeen = S.tutSeen || {}; S.tutBase = S.tutBase || {ind:0, teacher:0, school:0, hidden:0, debt:0};
+  if(S.houseIdx === undefined) S.houseIdx = 100;
+  if(!S.landHeat && S.landHeat !== 0) S.landHeat = 1.0;
+  if(S.landSold === undefined) S.landSold = 0;
+  if(S.pendingLand === undefined) S.pendingLand = 0;
+  if(S.opin === undefined) S.opin = 22;
+  if(S.talked === undefined) S.talked = false;
+  if(p.ui){ TOOL=p.ui.TOOL||TOOL; MODE=p.ui.MODE||MODE; LAYER=p.ui.LAYER||LAYER; GROUP=p.ui.GROUP||GROUP; }
+  return true;
+}
+function saveAuto(){ return lsSet(KEY.auto, packS()); }
+function hasAuto(){ const p = lsGet(KEY.auto,null); return !!(p && p.S && !p.S.ended); }
+function loadAuto(){ return unpack(lsGet(KEY.auto,null)); }
+const slots = () => lsGet(KEY.slot, [null,null,null]);
+function saveToSlot(i){ const a = slots(); a[i] = packS(); lsSet(KEY.slot,a); toast(`已存入档位 ${i+1}`); showArchive(); }
+function loadFromSlot(i){ const a = slots(); if(!a[i]) return toast("该档位为空"); if(unpack(a[i])){ closeModal(); BUSY=false; render(); toast(`已读取档位 ${i+1}`); } }
+function delSlot(i){ const a = slots(); a[i] = null; lsSet(KEY.slot,a); showArchive(); toast(`已删除档位 ${i+1}`); }
+function gallery(){ return lsGet(KEY.gal, []); }
+function galleryAdd(){
+  const g = gallery(), d = D();
+  g.unshift({city:S.city, rank:RANKS[S.rank].n, kind:S.ended, years:S.year-2026+(S.month>1?1:0),
+    pop:S.pop, hidden:Math.round(d.hiddenRatio), best:S.history.length?Math.max.apply(null,S.history.map(h=>h.total)):0,
+    dossier:S.dossier.length, t:Date.now()});
+  lsSet(KEY.gal, g.slice(0,20));
+}
+function showArchive(){
+  const a = slots();
+  modal(`<div class="eyebrow">存档管理</div><h2>存档 / 读档</h2>
+    <div class="date">自动存档会在每月结算时更新，另外提供 3 个手动档位</div>
+    ${a.map((p,i)=>`<div class="slot">
+      <div class="avatar" style="background:linear-gradient(150deg,${p?"#a3661f":"#8a8474"}44,#ffffff10)">${i+1}</div>
+      <div class="info"><div class="t">档位 ${i+1}</div>
+        <div class="s">${p?`${p.S.city} · ${RANKS[p.S.rank].n} · ${p.S.year}.${String(p.S.month).padStart(2,"0")} · 财政 ${money(p.S.cash)}`:"空档位"}</div></div>
+      <button class="btn sm" onclick="saveToSlot(${i})">存入</button>
+      <button class="btn sm" ${p?"":"disabled"} onclick="loadFromSlot(${i})">读取</button>
+      <button class="btn sm ghost" ${p?"":"disabled"} onclick="delSlot(${i})">删除</button>
+    </div>`).join("")}
+    <p class="muted">进度保存在浏览器本地（localStorage），换浏览器或清理缓存会丢失。</p>
+    <div class="btn-row"><button class="btn" onclick="showGallery()">查看履历馆</button>
+      <button class="btn primary" onclick="closeModal()">关闭</button></div>`);
+}
+function showGallery(){
+  const g = gallery();
+  const M = {win:["封疆一方",C.good], retire:["届满卸任",C.seal], fiscal:["财政崩盘",C.bad], caught:["接受审查",C.bad], fired:["就地免职",C.bad]};
+  modal(`<div class="eyebrow">履历馆</div><h2>历任任期</h2>
+    <div class="date">每一次结局都会写入这里，共记录最近 ${g.length} 任</div>
+    ${g.length? g.map(x=>{ const m = M[x.kind]||["未知","var(--txt)"];
+      return `<div class="gal">
+        <div class="avatar" style="background:linear-gradient(150deg,${m[1]}44,#ffffff10)">${x.rank[0]}</div>
+        <div class="gb"><div class="gt">${x.city}${x.rank} · <span style="color:${m[1]}">${m[0]}</span></div>
+          <div class="gs">在任 ${x.years} 年 · 人口 ${fmt(x.pop)} · 隐性债务率 ${x.hidden}% · 最高考核 ${x.best} 分 · 档案 ${x.dossier} 条</div></div>
+      </div>`; }).join("") : '<p class="muted">还没有完成过任何一任。结束时会自动记录。</p>'}
+    <div class="btn-row"><button class="btn primary" onclick="closeModal()">关闭</button></div>`);
+}
+
+/* ================= 新手引导 ================= */
+const TUT = [
+  {id:"data", t:"看清家底", d:"点右上 ＋ →「数据」，看本月收入与支出。先看清算余，再决定动不动工。", sel:"#btnPlus"},
+  {id:"ind",  t:"补上产业岗位", d:"底栏点「建造」选工业，在地图上新增 2 格工业用地——岗位不足会同时拖累人口和民意。", sel:"[data-bb='build']"},
+  {id:"edu",  t:"补教育短板", d:"政务 · 申报里招录 20 名教师，或新建 1 所学校。教育是最慢的变量，早投早受益。", sel:"#btnPlus"},
+  {id:"debt", t:"试一次举债", d:"资金不够不必硬扛：政务 · 财政里举一次债。但要盯住隐性债务率，它决定考核的财政健康分。", sel:"#btnPlus"},
+  {id:"year", t:"撑过首次考核", d:"推进到第 12 个月完成第一次年度考核，本级达标线 ${LINE} 分。", sel:"#nextBtn"}
+];
+function tutCheck(i, d){
+  const s = S;
+  if(i === 0) return !!(s.tutSeen && s.tutSeen.data);
+  if(i === 1) return d.c.ind >= s.tutBase.ind + 2;
+  if(i === 2) return s.staff.teacher >= s.tutBase.teacher + 20 || (d.A.cnt.school||0) > s.tutBase.school;
+  if(i === 3) return s.hidden > s.tutBase.hidden + 80 || s.debt > s.tutBase.debt + 80;
+  if(i === 4) return s.history.length >= 1;
+  return true;
+}
+function advanceTut(d){
+  if(!S.tut || !S.tut.on) return;
+  let guard = 0;
+  while(S.tut.step < TUT.length && tutCheck(S.tut.step, d) && guard++ < 6){
+    S.tut.step++;
+    if(S.tut.step < TUT.length) toast("引导完成：" + TUT[S.tut.step-1].t);
+  }
+  if(S.tut.step >= TUT.length && S.tut.on){ S.tut.on = false; toast("新手引导完成，接下来靠你自己了"); }
+}
+function renderTut(){
+  let el = document.querySelector(".tut");
+  if(document.querySelectorAll) document.querySelectorAll(".hl").forEach(e=> e.classList.remove("hl"));
+  if(!S || !S.tut || !S.tut.on || S.ended || S.tut.step >= TUT.length){ if(el) el.remove(); return; }
+  const step = TUT[S.tut.step];
+  if(!el){ el = document.createElement("div"); el.className = "tut"; document.body.appendChild(el); }
+  const d = TUT[S.tut.step].t === TUT[4].t ? TUT[4].d.replace("${LINE}", RANKS[S.rank].line) : step.d;
+  el.innerHTML = `<div class="hd"><span class="stp">新手引导 ${S.tut.step+1}/${TUT.length}</span>
+      <button class="btn sm ghost" onclick="skipTut()">跳过引导</button></div>
+    <div class="t">${step.t}</div><div class="d">${d}</div>
+    <div class="pg">${TUT.map((_,i)=>`<i class="${i<=S.tut.step?"on":""}"></i>`).join("")}</div>`;
+  if(step.sel && document.querySelector){ const t = document.querySelector(step.sel); if(t) t.classList.add("hl"); }
+}
+function skipTut(){
+  if(S.tut) S.tut.on = false;
+  const el = document.querySelector(".tut"); if(el) el.remove();
+  saveAuto(); toast("已跳过新手引导");
+}
+
+function newGame(){
+  S = {
+    city: pick(CITY_A)+pick(CITY_B),
+    year:2026, month:1, rank:0, stars:0, warns:0,
+    cash:3000, debt:1800, hidden:900,      // debt 专项债（法定）；hidden 城投债（隐性）
+    hiddenRate:0, reserve:0.02, pool:0,
+    pop:1500, morale:56, integrity:76,
+    livMod:0, industr:1.0, welfare:1, eduBonus:0, medBonus:0,
+    houseIdx:100, landHeat:1.0, landSold:0, pendingLand:0, opin:22, talked:false,
+    clue:0, dossier:[], biz:[], officials:[],
+    staff:{admin:130, teacher:90, doctor:55},
+    grid:new Array(COLS*ROWS).fill("empty"),
+    log:[], events:[], petitions:[], used:[], history:[],
+    gdpAcc:0, gdpLast:0, growth:0.05, revYear:0, deficitMonths:0,
+    last:{rev:0,exp:0,net:0,reason:""}, prevExp:null,
+    tut:{on:true, step:0}, tutSeen:{}, tutBase:null, ended:null
+  };
+  seedMap(); seedOfficials(); seedBiz();
+  S.gdpLast = D().gdp*12*0.94;
+  const d0 = D();
+  S.tutBase = {ind:d0.c.ind, teacher:S.staff.teacher, school:(d0.A.cnt.school||0), hidden:S.hidden, debt:S.debt};
+  pushLog("就任", `${S.city}${RANKS[0].n} 履新，任期开始。`);
+}
+function seedMap(){
+  const plan = ["comm","comm","comm","comm","comm","comm","flat","flat",
+                "street","street","plaza","light","heavy",
+                "school","hospital","park","park"];
+  const pool = [];
+  for(let r=1;r<ROWS-1;r++) for(let c=2;c<COLS-2;c++) pool.push(r*COLS+c);
+  for(let i=pool.length-1;i>0;i--){ const j=ri(0,i); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  plan.forEach((t,i)=>{ S.grid[pool[i]] = t; });
+}
+function seedOfficials(){
+  for(let i=0;i<5;i++) S.officials.push({id:i, name:pick(SURNAME)+pick(GIVEN), ab:ri(2,5), it:ri(2,5), age:ri(38,56), dept:null, post:pick(POSTS)});
+  DEPTS.forEach((d,i)=> S.officials[i].dept = d.k);
+}
+function seedBiz(){
+  S.biz.push(mkBiz(pick(SECTORS), BIZ_TIER[0]), mkBiz(pick(SECTORS), BIZ_TIER[1]));
+}
+function mkBiz(sec, tier){
+  return {name:pick(CITY_A)+sec.n.slice(0,2)+pick(["有限","集团","实业","科技"])+"公司", sec:sec.n, tier:tier.n,
+    tax:ri(tier.tax[0],tier.tax[1]), jobs:ri(tier.jobs[0],tier.jobs[1]), life:ri(tier.life[0],tier.life[1]), stage:1};
+}
+const officialOf = k => S.officials.find(o=>o.dept===k) || null;
+function pushLog(tag, text){
+  S.log.unshift({tag, text, t:`${S.year}.${String(S.month).padStart(2,"0")}`});
+  if(S.log.length>60) S.log.pop();
+}
+
+/* ================= 4. 经济推导 ================= */
+function D(){
+  const c = {res:0,com:0,ind:0,park:0,pub:0,built:0};
+  const A = {cap:0, taxRes:0, jobsCom:0, taxCom:0, jobsInd:0, taxInd:0, live:0, edu:0, med:0, up:0, cnt:{}};
+  for(const k of S.grid){
+    if(k === "empty") continue;
+    const t = CELLS[k];
+    c[t.cat]++; c.built++; A.up += t.up;
+    A.cnt[k] = (A.cnt[k]||0)+1;
+    if(t.cap)  A.cap += t.cap;
+    if(t.tax && t.cat === "res") A.taxRes += t.tax;
+    if(t.jobs && t.cat === "com"){ A.jobsCom += t.jobs; A.taxCom += t.tax; }
+    if(t.jobs && t.cat === "ind"){ A.jobsInd += t.jobs; A.taxInd += t.tax; }
+    if(t.live) A.live += t.live;
+    if(t.edu) A.edu += t.edu;
+    if(t.med) A.med += t.med;
+  }
+  const oF = officialOf("fis"), oU = officialOf("urb"), oC = officialOf("civ"), oI = officialOf("ind");
+  const taxEff = 1 + ((oF?oF.ab:3)-3)*0.04;
+  const buildMul = (1 - ((oU?oU.ab:3)-3)*0.05) * (1 + c.built*0.02);
+  const civB = ((oC?oC.ab:3)-3)*1.5;
+  const indB = ((oI?oI.ab:3)-3)*0.08;
+
+  let bizJobs=0, bizTax=0;
+  for(const b of S.biz){ bizJobs += b.jobs; bizTax += b.tax; }
+  const jobs = A.jobsCom + A.jobsInd + bizJobs;
+  const labor = Math.max(1, S.pop*0.62);
+  const emp = clamp(jobs/labor, 0, 1);
+  const crowd = Math.max(0, S.pop/Math.max(1,A.cap) - 1) * 80;
+  const livable = clamp(50 + A.live + S.livMod - crowd, 0, 100);
+  const edu = clamp(20 + A.edu*1.0 + (S.staff.teacher/Math.max(1,S.pop))*260 + civB + S.eduBonus, 0, 100);
+  const med = clamp(20 + A.med*1.0 + (S.staff.doctor/Math.max(1,S.pop))*300 + civB + S.medBonus, 0, 100);
+
+  const occ = A.cap? clamp(S.pop/A.cap, 0, 1) : 0;
+  const rRes = A.taxRes * (0.35 + 0.65*occ) * taxEff * clamp(1 + (S.houseIdx-100)/220, 0.8, 1.3);
+  const rCom = A.taxCom * clamp(S.pop/(Math.max(1,A.jobsCom)*5.5), 0.40, 1.25) * taxEff;
+  const rInd = A.taxInd * S.industr * taxEff;
+  const rBiz = bizTax * S.industr * taxEff;
+  const rTra = RANKS[S.rank].pay + S.pop*0.025;
+  const rev = rRes + rCom + rInd + rBiz + rTra;
+
+  const eWage = S.staff.admin*0.50 + S.staff.teacher*0.45 + S.staff.doctor*0.50;
+  const eOper = 30 + c.built*1.0;
+  const eLive = S.pop*0.045*S.welfare;
+  const eUp   = A.up;
+  const eInt  = S.debt*0.0025 + S.hidden*(0.006 + S.hiddenRate);
+  const eRes  = rev*S.reserve;
+  const exp   = eWage + eOper + eLive + eUp + eInt + eRes;
+
+  const gdp = S.pop*0.05 + A.taxCom*1.2 + A.taxInd*1.6 + bizTax*1.5 + A.taxRes*0.8;
+  const debtRatio = (S.debt + S.hidden*1.5) / Math.max(1, rev*12) * 100;
+  const hiddenRatio = S.hidden / Math.max(1, rev*12) * 100;
+  const morT = clamp(0.28*livable + 0.18*edu + 0.18*med + 0.30*(emp*100) + (S.welfare-1)*10, 0, 100);
+  const three = eWage + eOper + eLive;
+  const sanbaoRisk = (S.cash + (rev-exp)) < three;
+  const tension = clamp(0.4*hiddenRatio/70*100*0.01*100 + Math.max(0, -S.last.net)*0.4 + (S.debt+S.hidden)/Math.max(1,rev*12)*40, 0, 100);
+
+  // 需求判定
+  const need = (dem, sup) => sup >= dem*1.12 ? {t:"充足", c:C.good} : sup >= dem ? {t:"基本平衡", c:C.good}
+    : sup >= dem*0.85 ? {t:"紧张", c:C.warn} : sup >= dem*0.6 ? {t:"不足", c:C.bad} : {t:"严重不足", c:C.bad};
+
+  // 土地市场：一批 = 40 住宅容量，一次性出让金
+  const landQuota = 5 + S.rank*3;
+  const landFree = Math.max(0, A.cap - Math.round(S.pop*1.08));
+  const landPrice = Math.round(260 * S.landHeat * (S.houseIdx/100) * (1+S.rank*0.15) / 10)*10;
+
+  return {c, A, taxEff, buildMul, indB, jobs, bizJobs, bizTax, emp, labor, occ, livable, edu, med,
+    rRes, rCom, rInd, rBiz, rTra, rev, eWage, eOper, eLive, eUp, eInt, eRes, exp, three,
+    gdp, debtRatio, hiddenRatio, morT, tension, net: rev-exp,
+    land:{free:landFree, price:landPrice, quota:landQuota, left:Math.max(0, landQuota-S.landSold)},
+    opin:S.opin, houseIdx:S.houseIdx, landHeat:S.landHeat,
+    dHouse: need(S.pop, A.cap), dJob: need(labor, jobs),
+    dCom: need(S.pop*0.28, A.jobsCom), dInd: need(S.pop*0.20, A.jobsInd)};
+}
+
+/* ================= 5. 月度推进 ================= */
+function nextMonth(){
+  if(S.ended || BUSY) return;
+  const d = D();
+  S.cash += d.net; S.pool += d.eRes;
+  S.gdpAcc += d.gdp; S.revYear += d.rev;
+  S.last = {rev:d.rev, exp:d.exp, net:d.net};
+  const attr = clamp(0.55 + 0.25*(d.livable/100) + 0.15*d.emp + 0.05*((d.edu+d.med)/200), 0.40, 1.05);
+  const target = Math.min(d.A.cap*attr, d.jobs/0.62*1.35);
+  S.pop = Math.max(0, Math.round(S.pop + (target - S.pop)*0.16));
+  S.morale = clamp(S.morale + (d.morT - S.morale)*0.24, 0, 100);
+  S.integrity = clamp(S.integrity + 0.12, 0, 100);
+  // ── 土地市场 ──
+  S.houseIdx = clamp(S.houseIdx + (100-S.houseIdx)*0.02 + (Math.random()-0.5)*1.4, 72, 165);
+  S.landHeat = clamp(S.landHeat + (Math.random()-0.5)*0.07 + (100-S.houseIdx)*0.0006, 0.55, 1.5);
+  if(S.pendingLand > 0 && Math.random() < 0.55){
+    const em = []; for(let i=0;i<S.grid.length;i++) if(S.grid[i]==="empty") em.push(i);
+    if(em.length){ S.grid[em[ri(0,em.length-1)]] = "comm"; S.pendingLand--;
+      pushLog("城建", "拿地开发商动工，一处住宅小区开工建设。"); }
+    else S.pendingLand = 0;
+  }
+  // ── 舆情热度 ──
+  let opinD = (26 - S.opin)*0.06;
+  if(S.morale < 42) opinD += 1.6; else if(S.morale > 68) opinD -= 1.0;
+  if(d.net < 0) opinD += 0.9;
+  if(S.petitions.filter(p=>!p.done).length >= 3) opinD += 1.1;
+  if(S.integrity < 42) opinD += 0.7;
+  if(S.welfare >= 1.5) opinD -= 0.8;
+  S.opin = clamp(S.opin + opinD, 0, 100);
+  if(S.opin >= 80 && !S.talked){
+    S.talked = true; S.morale = clamp(S.morale-2,0,100); S.integrity = clamp(S.integrity-1,0,100);
+    pushLog("舆情", "舆情持续发酵，上级办公厅来电询问，要求稳妥处置、及时回应。");
+    toast("舆情升温：上级来电询问");
+  }
+  if(S.opin < 72) S.talked = false;
+  if(S.month % 3 === 0) evolveBiz();
+  for(const o of S.officials){
+    if(o.dept && Math.random() < (5-o.it)*0.006){
+      S.clue++; S.petitions.push({t:`反映${o.name}在${DEPTS.find(x=>x.k===o.dept).n}存在问题`, y:`${S.year}.${S.month}`, done:false});
+      pushLog("监察", `收到关于 ${o.name} 的问题线索。`);
+    }
+  }
+  if(S.cash < 0){
+    S.deficitMonths++; S.hidden += 300; S.cash += 300;
+    S.morale = clamp(S.morale-2,0,100); S.integrity = clamp(S.integrity-0.5,0,100);
+    pushLog("财政", "当期支出无法兑现，由平台公司垫付，隐性债务上升。");
+    if(S.deficitMonths >= 12) return endGame("fiscal");
+  } else S.deficitMonths = 0;
+
+  pushLog("月度", `${S.year}.${S.month} 财政结余 ${money(d.net)}，金库 ${money(S.cash)}。`);
+  S.month++;
+  render();
+  saveAuto(); advanceTut(D()); renderTut();
+  if(Math.random() < 0.62 && !S.ended) setTimeout(fireEvent, 420);
+  else if(S.month > 12) setTimeout(annual, 420);
+}
+function evolveBiz(){
+  for(let i=S.biz.length-1;i>=0;i--){
+    const b = S.biz[i]; b.life--;
+    if(b.life <= 6 && b.stage < 3){ b.stage=3; b.tax=Math.round(b.tax*0.6); b.jobs=Math.round(b.jobs*0.7);
+      pushLog("产业", `${b.name} 进入衰退期，产能与税基下滑。`); }
+    else if(b.life < 12 && b.stage < 2){ b.stage = 2; }
+    if(b.life <= 0){ S.biz.splice(i,1); pushLog("产业", `${b.name} 停产退出，税基与岗位流失。`); }
+  }
+}
+
+/* ================= 6. 事件 ================= */
+function fireEvent(){
+  let ev;
+  if(EVENTS.length > S.used.length){ let i; do{ i = ri(0,EVENTS.length-1); }while(S.used.includes(i)); S.used.push(i); ev = EVENTS[i]; }
+  else ev = makeDynamic();
+  BUSY = true;
+  const opts = ev.o.map((o,i)=>{
+    const cost = o.e && o.e.cash && o.e.cash < 0 ? `<span class="cost">${money(o.e.cash)}</span>` : "";
+    return `<button class="opt" data-i="${i}"><div class="ot"><span>${o.t}</span>${cost}</div><div class="od">${o.d}</div></button>`;
+  }).join("");
+  modal(`<div class="eyebrow">${ev.dyn?"动态事件 · 模拟生成":"政务事件"}</div>
+    <h2>${ev.t}</h2><div class="date">${S.city} · ${S.year} 年 ${S.month} 月</div>
+    <p>${ev.d}</p><div class="opts">${opts}</div>`);
+  document.querySelectorAll(".opt").forEach(b=> b.onclick = ()=> choose(ev, +b.dataset.i));
+}
+function makeDynamic(){
+  const t = pick(DYN_TPL), sec = pick(SECTORS).n, off = pick(S.officials);
+  const dept = off.dept ? DEPTS.find(x=>x.k===off.dept).n : "重要";
+  const rep = s => s.replace(/\{city\}/g,S.city).replace(/\{sector\}/g,sec).replace(/\{n\}/g, ri(6,68))
+                    .replace(/\{post\}/g, dept+"岗位").replace(/\{full\}/g, dept);
+  return {t:rep(t.t), d:rep(t.d), dyn:true, o:t.o.map(x=>({t:rep(x.t), d:rep(x.d), e:x.e}))};
+}
+function choose(ev, i){
+  const e = ev.o[i].e || {};
+  applyEff(e);
+  if((e.clue||0) > 0 || (e.int||0) <= -4 || (e.hidden||0) > 100) addDossier(ev.t, ev.o[i].t);
+  if((e.mor||0) < -4 || (e.clue||0) > 0) S.petitions.push({t:ev.t, y:`${S.year}.${S.month}`, done:true});
+  else S.events.unshift({t:ev.t, o:ev.o[i].t, y:`${S.year}.${S.month}`, dyn:!!ev.dyn});
+  closeModal(); BUSY = false;
+  pushLog("事件", `${ev.t} → ${ev.o[i].t}`); toast(ev.o[i].t);
+  render();
+  if(S.month > 12) setTimeout(annual, 380);
+}
+function addDossier(t, how){
+  S.dossier.push({t, how, y:`${S.year}.${S.month}`});
+}
+function applyEff(e){
+  if(e.cash) S.cash += e.cash;
+  if(e.debt) S.debt = Math.max(0, S.debt + e.debt);
+  if(e.hidden) S.hidden = Math.max(0, S.hidden + e.hidden);
+  if(e.hiddenRate) S.hiddenRate += e.hiddenRate;
+  if(e.mor) S.morale = clamp(S.morale + e.mor, 0, 100);
+  if(e.int) S.integrity = clamp(S.integrity + e.int, 0, 100);
+  if(e.edu) S.eduBonus = (S.eduBonus||0) + e.edu;
+  if(e.med) S.medBonus = (S.medBonus||0) + e.med;
+  if(e.pop) S.pop += e.pop;
+  if(e.clue) S.clue += e.clue;
+  if(e.liv) S.livMod = clamp(S.livMod + e.liv, -18, 22);
+  if(e.industr) S.industr = clamp(S.industr + e.industr, 0.55, 1.6);
+  if(e.houseIdx) S.houseIdx = clamp(S.houseIdx + e.houseIdx, 72, 165);
+  if(e.opin) S.opin = clamp(S.opin + e.opin, 0, 100);
+  else if(e.mor) S.opin = clamp(S.opin + (e.mor < 0 ? Math.min(7, -e.mor*0.7) : -Math.min(4, e.mor*0.35)), 0, 100);
+}
+
+/* ================= 7. 年度考核 ================= */
+function annual(){
+  if(S.ended) return;
+  const d = D();
+  const landYr = S.landSold;
+  S.month = 1; S.year++; S.landSold = 0;
+  if(S.year > 2041){ endGame("retire"); return; }
+  const due = Math.round(S.debt*0.12);
+  if(due > 0){
+    if(S.cash >= due){ S.cash -= due; S.debt -= due; pushLog("债务", `偿还到期法定债务 ${money(due)}。`); }
+    else { S.debt -= due; S.hidden += due; pushLog("债务", `无力偿还 ${money(due)}，转为平台公司隐性债务。`); }
+  }
+  let audit = "";
+  if(S.clue >= 3 && Math.random() < 0.35){
+    if(S.integrity < 30 || S.hidden > 6000){ endGame("caught"); return; }
+    S.clue = Math.max(0,S.clue-1); S.integrity = clamp(S.integrity-4,0,100);
+    audit = "审计倒查：发现问题但未触及问责，廉洁度下降。";
+  } else if(S.clue > 0 && Math.random() < 0.45) S.clue--;
+
+  const growth = (S.gdpAcc - S.gdpLast)/Math.max(1,S.gdpLast);
+  S.growth = growth; S.gdpLast = S.gdpAcc; S.gdpAcc = 0;
+  const gS = clamp(growth*220, 0, 25);
+  const fS = d.debtRatio<=70 ? 20 : d.debtRatio>=200 ? 0 : 20*(200-d.debtRatio)/130;
+  const lS = ((d.edu + d.med + d.livable)/3)/100*20;
+  const mS = Math.max(0, S.morale/100*20 - Math.max(0, S.opin-70)*0.5);
+  const iS = S.integrity/100*15;
+  let total = Math.round(gS+fS+lS+mS+iS);
+  const R = RANKS[S.rank];
+  let verdict, cls, grade;
+  if(S.integrity < 25 && S.clue >= 3){ endGame("caught"); return; }
+  if(total >= R.line){
+    S.stars++; S.warns = 0; grade="称职"; verdict = `称职（达标线 ${R.line}）`; cls = C.good;
+    if(S.stars >= R.need){
+      S.rank++; S.stars = 0; verdict = `优秀，晋升为${RANKS[S.rank].n}！`; grade="优秀";
+      if(S.rank >= RANKS.length-1){ endGame("win"); return; }
+    }
+  } else if(total >= R.line-10){
+    grade="基本称职"; verdict = `基本称职（未达标，距线 ${R.line-total} 分）`; cls = C.warn;
+  } else {
+    S.warns++; grade="不称职"; verdict = `不称职（低于达标线 ${R.line-total} 分）`; cls = C.bad;
+    if(S.warns >= 2){ endGame("fired"); return; }
+  }
+  S.history.push({year:S.year-1, total, grade, growth, debtRatio:d.debtRatio, hiddenRatio:d.hiddenRatio, morale:S.morale});
+  BUSY = true;
+  const row = (n,v,mx) => `<div class="r"><div class="n">${n}</div><div class="t"><i style="width:${v/mx*100}%"></i></div><div class="s">${fmt(v)}/${mx}</div></div>`;
+  const stamp = (grade==="优秀"||grade==="称职") ? ["阅",""] : grade==="基本称职" ? ["存","gold"] : ["查","ink"];
+  modal(`<div class="eyebrow">${S.city} · ${S.year-1} 年度述职</div>
+    <h2>年度考核报告</h2><div class="date">在任：${RANKS[S.rank].n} · 政绩 ${S.stars}/${RANKS[S.rank].need} 星 · 财政紧张度 ${fmt(d.tension)}</div>
+    <div class="score-tbl">
+      ${row("经济增长",gS,25)}${row("财政健康",fS,20)}${row("民生改善",lS,20)}${row("民意口碑",mS,20)}${row("廉洁守纪",iS,15)}
+    </div>
+    <div class="verdict"><div class="seal ${stamp[1]}">${stamp[0]}</div><div class="big" style="color:${cls}">${total} 分 · ${verdict}</div>
+      <p style="margin-top:8px;font-size:12.5px">GDP 增速 ${pct(growth*100)}｜综合债务率 ${pct(d.debtRatio)}｜隐性债务率 ${pct(d.hiddenRatio)}｜民意 ${fmt(S.morale)}</p>
+      <p style="margin-top:4px;font-size:12.5px">教育 ${fmt(d.edu)}｜医疗 ${fmt(d.med)}｜宜居 ${fmt(d.livable)}｜就业率 ${pct(d.emp*100)}</p>
+      <p style="margin-top:4px;font-size:12.5px">舆情 ${fmt(S.opin)}｜房价指数 ${fmt(S.houseIdx)}｜本年出让土地 ${landYr} 批</p>
+      ${S.opin>=70?`<p style="margin-top:4px;font-size:12.5px;color:#a03428">舆情偏高，民意口碑分已被扣除 ${fmt(Math.max(0,S.opin-70)*0.5)} 分。</p>`:""}
+      ${audit?`<p style="margin-top:8px;font-size:12.5px;color:#a03428">${audit}</p>`:""}
+    </div>
+    <div class="btn-row"><button class="btn primary" onclick="closeModal();BUSY=false;render()">进入 ${S.year} 年</button></div>`);
+}
+function endGame(kind){
+  const M = {
+    fiscal:{t:"财政崩盘", c:C.bad, d:"连续一年无法兑现支出，工资停发、工程款拖欠，上级果断调整了班子。你的任期戛然而止。"},
+    caught:{t:"接受审查", c:C.bad, d:"线索被逐一查实，审计倒查追到了几年前的账。责任档案终身留存——这一次，履历写到了终点。"},
+    fired: {t:"就地免职", c:C.bad, d:"连续两年考核不称职，组织部门找你谈话。你没有等到下一次机会。"},
+    win:   {t:"封疆一方", c:C.good,d:"从镇长一路走到封疆，你见过账本见底的深夜，也见过新区第一盏灯亮起。收拾行囊，去更远的地方。"},
+    retire:{t:"届满卸任", c:C.seal,d:"任期届满。你留下的不是一串数字，而是一座还在运转的城市，和一堆没做完的事。"}
+  }[kind];
+  S.ended = kind; BUSY = true; galleryAdd(); saveAuto();
+  const years = S.year - 2026 + (S.month>1?1:0);
+  const eStamp = (kind==="win") ? "晋" : (kind==="retire") ? "退" : "查";
+  const eCls = (kind==="win"||kind==="retire") ? "" : "ink";
+  modal(`<div class="eyebrow">${S.city} · 结局</div><div class="seal ${eCls}" style="top:20px;right:16px">${eStamp}</div>
+    <h2 style="color:${M.c}">${M.t}</h2>
+    <div class="date">在任 ${years} 年 · 终任 ${RANKS[S.rank].n} · 人口 ${fmt(S.pop)} · 隐性债务率 ${pct(D().hiddenRatio)}</div>
+    <p>${M.d}</p>
+    <div class="score-tbl" style="margin-top:12px">
+      ${S.history.slice(-8).map(h=>`<div class="r"><div class="n">${h.year} · ${h.grade}</div><div class="t"><i style="width:${h.total}%"></i></div><div class="s">${h.total}</div></div>`).join("")}
+    </div>
+    <div class="btn-row"><button class="btn primary" onclick="restart()">再任一届</button></div>`);
+}
+function restart(){ closeModal(); newGame(); BUSY = false; render(); }
+/* ================= 8. 渲染 ================= */
+const PTABS = [
+  {k:"need", n:"需求"}, {k:"data", n:"数据"}, {k:"policy", n:"政策"},
+  {k:"event", n:"事件"}, {k:"gov", n:"政务"}, {k:"self", n:"个人事务"}
+];
+const SUBS = [{k:"plan",n:"规划"},{k:"finance",n:"财政"},{k:"hr",n:"申报"}];
+const meter = (n,v,c,note) => `<div class="meter"><div class="top"><span>${n}</span><span style="color:${c}">${fmt(v)}${note||""}</span></div>
+  <div class="track"><div class="fill" style="width:${clamp(v,0,100)}%;background:${c}"></div></div></div>`;
+const stars = n => "★".repeat(n) + "☆".repeat(Math.max(0,5-n));
+const row = (l,r,c) => `<div class="row"><span class="l">${l}</span><span class="r" style="color:${c||"var(--txt)"}">${r}</span></div>`;
+const lv = o => `<span class="level" style="background:${o.c}22;color:${o.c};border:1px solid ${o.c}55">${o.t}</span>`;
+
+function render(){
+  const d = D(), R = RANKS[S.rank];
+  $("#rankName").textContent = `${S.city}${R.n}`;
+  $("#dateTxt").textContent = `${S.year}.${String(S.month).padStart(2,"0")}　第 ${S.year-2025} 个年头`;
+  $("#stats").innerHTML =
+    `<div class="st"><div class="k">财政</div><div class="v" style="color:${S.cash<0?C.bad:C.good}">${money(S.cash)}</div></div>` +
+    `<div class="st"><div class="k">人口</div><div class="v">${fmt(S.pop)}</div></div>` +
+    `<div class="st"><div class="k">幸福指数</div><div class="v" style="color:${col(S.morale,60,40)}">${fmt(S.morale)}</div></div>` +
+    `<div class="st"><div class="k">隐性债务率</div><div class="v" style="color:${col(-d.hiddenRatio,-40,-70)}">${pct(d.hiddenRatio)}</div></div>` +
+    `<div class="st"><div class="k">月度结余</div><div class="v" style="color:${d.net>=0?C.good:C.bad}">${money(d.net)}</div></div>` +
+    `<div class="st"><div class="k">舆情热度</div><div class="v" style="color:${col(-S.opin,-45,-70)}">${fmt(S.opin)}</div></div>`;
+  $("#stageTip").textContent = MODE==="demolish" ? "拆除模式：点击格子拆除（¥20/格）"
+    : LAYER==="land" ? `建造模式：${CELLS[TOOL].n}　${CELLS[TOOL].cost}/格`
+    : `图层：${{live:"宜居",tax:"收益",people:"人口"}[LAYER]}　（再次点击“图层”切换）`;
+  paintMap(d); renderDrawer(d); renderPanel(d);
+  document.querySelectorAll(".bb-btn").forEach(b=>{
+    const on = (b.dataset.bb==="build" && MODE==="build") || (b.dataset.bb==="demolish" && MODE==="demolish");
+    b.classList.toggle("on", on);
+  });
+  $("#nextBtn").disabled = !!S.ended || BUSY;
+  renderTut();
+}
+
+function buildGrid(){
+  const m = $("#map");
+  m.style.gridTemplateColumns = `repeat(${COLS}, var(--cs))`;
+  m.innerHTML = "";
+  for(let i=0;i<COLS*ROWS;i++){
+    const c = document.createElement("div");
+    c.className = "cell"; c.dataset.i = i; c.onclick = ()=> paint(i);
+    m.appendChild(c);
+  }
+}
+function paintMap(d){
+  document.querySelectorAll(".cell").forEach(el=>{
+    const i = +el.dataset.i, k = S.grid[i], t = CELLS[k];
+    let bg = "#ddd2b4", sh = "inset 0 0 0 1px rgba(92,74,38,.16)";
+    if(k !== "empty"){
+      if(LAYER === "land") bg = `linear-gradient(150deg,${t.c},${t.c}cc)`;
+      else if(LAYER === "live"){
+        const v = t.live||0;
+        bg = v>=0 ? `rgba(88,138,72,${0.22+Math.min(.74,v/8)})` : `rgba(178,58,46,${0.26+Math.min(.68,-v/6)})`;
+      } else if(LAYER === "tax"){
+        const v = t.tax||0;
+        bg = `rgba(70,110,130,${0.14+Math.min(.8,v/52)})`;
+      } else {
+        bg = t.cat==="res" ? `rgba(163,102,31,${0.22+0.46*d.occ})` : "rgba(60,52,36,.09)";
+      }
+      sh = `0 3px 9px ${t.c}55, inset 0 0 0 1px rgba(58,48,30,.3)`;
+    }
+    el.style.background = bg; el.style.boxShadow = sh;
+    el.textContent = LAYER==="land" ? t.sig||"" : "";
+  });
+}
+function renderDrawer(d){
+  const dw = $("#drawer");
+  if(MODE !== "build"){ dw.classList.remove("open"); return; }
+  dw.classList.add("open");
+  dw.innerHTML = `<div class="dw-tabs">${GROUPS.map(g=>
+    `<div class="dw-tab ${GROUP===g.k?"on":""}" data-g="${g.k}">${g.n}</div>`).join("")}</div>
+    <div class="dw-list">${GROUPS.find(g=>g.k===GROUP).ks.map(k=>{
+      const t = CELLS[k], dis = t.n==="高新技术" && d.edu < 50;
+      return `<div class="bcard ${TOOL===k?"on":""}" data-k="${k}" style="${dis?"opacity:.42":""}">
+        <span class="sw" style="background:${t.c}"></span>
+        <div><div class="nm">${t.n}</div><div class="px"><b>${t.cost}</b>/格 · ${t.d}</div></div></div>`;
+    }).join("")}</div>`;
+  dw.querySelectorAll(".dw-tab").forEach(e=> e.onclick = ()=>{ GROUP = e.dataset.g; renderDrawer(D()); });
+  dw.querySelectorAll(".bcard").forEach(e=> e.onclick = ()=>{
+    const k = e.dataset.k;
+    if(k === "hitech" && D().edu < 50) return toast("教育水平不足 50，高新技术企业不会落地");
+    TOOL = k; render();
+  });
+}
+function paint(i){
+  if(S.ended || BUSY) return;
+  const d = D(), cur = S.grid[i];
+  if(MODE === "demolish"){
+    if(cur === "empty") return;
+    if(S.cash < 20) return toast("资金不足，无法拆除");
+    S.cash -= 20; S.grid[i] = "empty";
+    pushLog("城建", `拆除一处${CELLS[cur].n}。`);
+  } else {
+    const t = CELLS[TOOL];
+    if(cur === TOOL) return;
+    const cost = Math.round(t.cost * d.buildMul);
+    if(S.cash < cost) return toast(`资金不足（需 ¥${cost}）`);
+    S.cash -= cost; S.grid[i] = TOOL;
+    pushLog("城建", `新建${t.n}，支出 ¥${cost}。`);
+    document.querySelectorAll(".cell")[i].classList.add("new");
+    setTimeout(()=>document.querySelectorAll(".cell")[i].classList.remove("new"), 460);
+  }
+  render();
+}
+
+/* ---- 右侧六大板块 ---- */
+function renderPanel(d){
+  const p = $("#panel");
+  p.classList.toggle("open", PANEL);
+  if(!PANEL) return;
+  p.innerHTML = `<div class="pn-hd"><h2>${{need:"需求",data:"数据",policy:"政策",event:"事件",gov:"政务",self:"个人事务"}[PTAB]}</h2>
+      <button class="icon-btn" id="pnClose" style="width:32px;height:32px;font-size:14px">✕</button></div>
+    <div class="pn-tabs">${PTABS.map(t=>`<div class="pn-tab ${PTAB===t.k?"on":""}" data-t="${t.k}">${t.n}</div>`).join("")}</div>
+    ${PTAB==="gov"?`<div class="pn-sub">${SUBS.map(s=>`<div class="pn-tab ${SUB===s.k?"on":""}" data-s="${s.k}">${s.n}</div>`).join("")}</div>`:""}
+    <div class="pn-body">${panelHTML(d)}</div>`;
+  p.querySelector("#pnClose").onclick = ()=>{ PANEL = false; render(); };
+  p.querySelectorAll("[data-t]").forEach(e=> e.onclick = ()=>{
+    PTAB = e.dataset.t;
+    if(PTAB === "data" && S.tut && S.tut.on){ S.tutSeen.data = true; advanceTut(D()); }
+    render();
+  });
+  p.querySelectorAll("[data-s]").forEach(e=> e.onclick = ()=>{ SUB = e.dataset.s; renderPanel(D()); });
+  p.querySelectorAll("[data-act]").forEach(e=>{
+    if(e.tagName === "SELECT") return;
+    e.onclick = ()=> doAct(e.dataset.act, e.dataset);
+  });
+  p.querySelectorAll("select[data-act]").forEach(e=> e.onchange = ()=> doAct(e.dataset.act, {id:e.dataset.id, v:e.value}));
+}
+function panelHTML(d){
+  if(PTAB==="need") return needHTML(d);
+  if(PTAB==="data") return dataHTML(d);
+  if(PTAB==="policy") return policyHTML(d);
+  if(PTAB==="event") return eventHTML(d);
+  if(PTAB==="gov") return SUB==="plan"?planHTML(d):SUB==="finance"?financeHTML(d):hrHTML(d);
+  return selfHTML(d);
+}
+
+function needHTML(d){
+  return `
+  <div class="card"><h3>住房与就业需求</h3>
+    <div class="row"><span class="l">住宅容量</span><span class="r">${lv(d.dHouse)}</span></div>
+    <div class="row"><span class="l">总需求 / 当前供给</span><span class="r">${fmt(S.pop)} / ${fmt(d.A.cap)}</span></div>
+    <div class="row"><span class="l">就业岗位</span><span class="r">${lv(d.dJob)}</span></div>
+    <div class="row"><span class="l">总需求 / 当前供给</span><span class="r">${fmt(d.labor)} / ${fmt(d.jobs)}</span></div>
+    <p class="muted" style="margin-top:8px">住房与就业必须同步增长。只盖不住人的房子、只招没有岗位的人，都会拖累民意。</p>
+  </div>
+  <div class="card"><h3>产业需求</h3>
+    <div class="row"><span class="l">商业岗位</span><span class="r">${lv(d.dCom)}</span></div>
+    <div class="row"><span class="l">总需求 / 当前供给</span><span class="r">${fmt(S.pop*0.28)} / ${fmt(d.A.jobsCom)}</span></div>
+    <div class="row"><span class="l">工业岗位</span><span class="r">${lv(d.dInd)}</span></div>
+    <div class="row"><span class="l">总需求 / 当前供给</span><span class="r">${fmt(S.pop*0.20)} / ${fmt(d.A.jobsInd)}</span></div>
+  </div>
+  <div class="card"><h3>人口与就业</h3>
+    <div class="mini">
+      <div class="m"><div class="k">常住人口</div><div class="v">${fmt(S.pop)}</div></div>
+      <div class="m"><div class="k">劳动力</div><div class="v">${fmt(d.labor)}</div></div>
+      <div class="m"><div class="k">就业率</div><div class="v" style="color:${col(d.emp*100,92,75)}">${pct(d.emp*100)}</div></div>
+      <div class="m"><div class="k">住房入住率</div><div class="v">${pct(d.occ*100)}</div></div>
+    </div>
+    ${meter("宜居度", d.livable, col(d.livable,60,40))}
+  </div>`;
+}
+function wfSVG(d){
+  const W=360, baseY=132, topY=16, bw=34, gap=4;
+  const maxV = Math.max(d.rev, d.exp, 1);
+  const sc = (baseY-topY)/maxV;
+  const steps = [
+    {n:"收入", v:d.rev, c:C.good},
+    {n:"保工资", v:d.eWage, c:C.warn},
+    {n:"保运转", v:d.eOper, c:C.warn},
+    {n:"保民生", v:d.eLive, c:C.warn},
+    {n:"维护", v:d.eUp, c:"#d9a441"},
+    {n:"利息", v:d.eInt, c:C.bad},
+    {n:"准备金", v:d.eRes, c:"#d9a441"}
+  ];
+  let x=6, running=0, svg=`<svg viewBox="0 0 ${W} 150" class="wf" preserveAspectRatio="none">`;
+  svg += `<line x1="0" y1="${baseY}" x2="${W}" y2="${baseY}" stroke="rgba(255,255,255,.18)"/>`;
+  for(const s of steps){
+    if(s.n === "收入"){
+      const y0 = baseY - s.v*sc;
+      svg += `<rect x="${x}" y="${y0}" width="${bw}" height="${baseY-y0}" rx="3" fill="${s.c}"/>`;
+      running = s.v;
+    } else {
+      const top = baseY - running*sc;
+      const bot = baseY - (running - s.v)*sc;
+      svg += `<line x1="${x-gap}" y1="${top}" x2="${x}" y2="${top}" stroke="rgba(255,255,255,.25)"/>`;
+      svg += `<rect x="${x}" y="${bot}" width="${bw}" height="${top-bot}" rx="3" fill="${s.c}"/>`;
+      running -= s.v;
+    }
+    svg += `<text x="${x+bw/2}" y="${baseY+13}" fill="#9aa0aa" font-size="10" text-anchor="middle">${s.n}</text>`;
+    x += bw + gap;
+  }
+  x += 2;
+  const netY = baseY - running*sc;
+  svg += `<rect x="${x}" y="${Math.min(baseY,netY)}" width="${bw}" height="${Math.abs(baseY-netY)}" rx="3" fill="${d.net>=0?C.good:C.bad}"/>`;
+  svg += `<text x="${x+bw/2}" y="${baseY+13}" fill="#9aa0aa" font-size="10" text-anchor="middle">结余</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+function sanbaoWarn(d){
+  if(!d.sanbaoRisk) return "";
+  return `<div class="card warn-card"><h3>⚠ 三保承压预警</h3>
+    <p>本月现金（含当月结余）约 <b>${money(S.cash + d.net)}</b>，已低于三保刚性支出 <b>${money(d.three)}</b>。
+    若缺口持续，下月起将触发平台公司垫付并推高隐性债务。</p>
+    <p class="muted">优先顺序固定：<b>保工资 → 保运转 → 保基本民生</b>，其次才是建设性支出。建议削减新增建设、谨慎上调准备金率，必要时合规举专项债填补，但务必盯住隐性债务率。</p>
+  </div>`;
+}
+function deficitAttr(d){
+  if(d.net >= 0) return "";
+  const items = [["保工资",d.eWage],["保运转",d.eOper],["保基本民生",d.eLive],
+    ["设施维护",d.eUp],["债务利息",d.eInt],["偿债准备金",d.eRes]].sort((a,b)=>b[1]-a[1]);
+  const top = items.slice(0,2).map(x=>`${x[0]} ${money(x[1])}`).join("、");
+  return `<div class="card warn-card"><h3>✕ 本月赤字 ${money(d.net)}</h3>
+    <p>支出结构中占比最高的是 <b>${top}</b>。三保合计 ${money(d.three)}（占支出 ${pct(d.three/Math.max(1,d.exp)*100)}）属刚性部分，压缩空间有限；可调项主要是建设性支出与隐性债利息成本。</p>
+  </div>`;
+}
+function dataHTML(d){
+  return `
+  <div class="card"><h3>财政收支 <span class="tag">月度</span></h3>
+    ${row("住宅税收", money(d.rRes))}${row("商业税收", money(d.rCom))}${row("工业税收", money(d.rInd))}
+    ${row("企业纳税", money(d.rBiz))}${row("上级转移支付", money(d.rTra), C.cyan)}
+    ${row("收入合计", money(d.rev), C.good)}
+  </div>
+  <div class="card"><h3>收支瀑布 <span class="tag">本月</span></h3>
+    <p class="muted" style="margin-bottom:6px">从收入起逐项扣减支出，末端为当月结余；赤字时结余落至基线以下。</p>
+    ${wfSVG(d)}
+    ${row("结余", money(d.net), d.net>=0?C.good:C.bad)}
+  </div>
+  <div class="card"><h3>财政支出 <span class="tag">三保优先序</span></h3>
+    ${row("① 保工资", money(d.eWage))}${row("② 保运转", money(d.eOper))}${row("③ 保基本民生", money(d.eLive))}
+    ${row("设施维护", money(d.eUp))}${row("债务利息", money(d.eInt))}${row("偿债准备金", money(d.eRes))}
+    ${row("支出合计", money(d.exp), C.bad)}
+    ${row("结余", money(d.net), d.net>=0?C.good:C.bad)}
+    <p class="muted" style="margin-top:8px">三保占本月支出 ${pct(d.three/Math.max(1,d.exp)*100)}，是砍不动的刚性部分。</p>
+  </div>
+  ${sanbaoWarn(d)}${deficitAttr(d)}
+  <div class="card"><h3>城市指标</h3>
+    <div class="mini">
+      <div class="m"><div class="k">月度 GDP</div><div class="v">${fmt(d.gdp)}</div></div>
+      <div class="m"><div class="k">GDP 增速</div><div class="v" style="color:${S.growth>=0.05?C.good:C.warn}">${pct(S.growth*100)}</div></div>
+      <div class="m"><div class="k">民意</div><div class="v" style="color:${col(S.morale,60,40)}">${fmt(S.morale)}</div></div>
+      <div class="m"><div class="k">廉洁度</div><div class="v" style="color:${col(S.integrity,60,40)}">${fmt(S.integrity)}</div></div>
+      <div class="m"><div class="k">舆情热度</div><div class="v" style="color:${col(-S.opin,-45,-70)}">${fmt(S.opin)}</div></div>
+      <div class="m"><div class="k">房价指数</div><div class="v" style="color:${col(120-S.houseIdx,0,-25)}">${fmt(S.houseIdx)}</div></div>
+    </div>
+    ${meter("舆情热度", S.opin, col(-S.opin,-45,-70))}
+    ${meter("教育水平", d.edu, col(d.edu,60,40))}
+    ${meter("医疗水平", d.med, col(d.med,60,40))}
+    ${meter("宜居度", d.livable, col(d.livable,60,40))}
+  </div>
+  <div class="card"><h3>债务</h3>
+    ${row("专项债（法定）", money(S.debt))}${row("城投债（隐性）", money(S.hidden), C.bad)}
+    ${meter("综合债务率", d.debtRatio, col(-d.debtRatio,-60,-160), "%")}
+    ${meter("隐性债务率", d.hiddenRatio, col(-d.hiddenRatio,-40,-70), "%")}
+    <p class="muted">隐性债务率 ≥70% 时，上级会下达化债任务书；到期未压降将冻结新增融资。</p>
+  </div>`;
+}
+function policyHTML(d){
+  const wBtn = (v,n) => `<button class="btn ${S.welfare===v?"primary":"ghost"}" data-act="welfare" data-v="${v}">${n}</button>`;
+  const rBtn = (v,n) => `<button class="btn ${Math.abs(S.reserve-v)<1e-6?"primary":"ghost"}" data-act="reserve" data-v="${v}">${n}</button>`;
+  return `
+  <div class="card"><h3>三保优先序 <span class="tag">刚性</span></h3>
+    <p class="muted">每月结算严格遵循 <b style="color:var(--txt2)">保工资 → 保运转 → 保基本民生 → 建设性支出</b>。出现缺口会引发连锁反应：工资缓发将同步拉低幸福度、声誉与班子团结度，连续 3 个月触发风险事件；年度考核时三保缺口还会导致评级压档。</p>
+    ${row("本月三保支出", money(d.three), C.warn)}
+  </div>
+  <div class="card"><h3>民生支出强度</h3>
+    <p class="muted">直接影响“保基本民生”一项，也显著抬升民意目标值。</p>
+    <div class="btn-row">${wBtn(0.6,"紧缩 0.6×")}${wBtn(1,"标准 1.0×")}${wBtn(1.5,"宽松 1.5×")}</div>
+  </div>
+  <div class="card"><h3>舆情热度 <span class="tag">${S.opin>=80?"上级已关注":S.opin>=45?"持续观察":"平稳"}</span></h3>
+    <p class="muted">欠薪、赤字、信访积案、高地价与低民意都会推高舆情；舆情过高时上级来电询问，年度考核还会扣民生口碑分。宽松民生强度可缓慢降温。</p>
+    ${meter("舆情热度", S.opin, col(-S.opin,-45,-70))}
+    <div class="btn-row"><button class="btn sm" data-act="briefing" ${S.cash<80||S.opin<8?"disabled":""}>新闻发布会（¥80，舆情 −12）</button></div>
+  </div>
+  <div class="card"><h3>偿债准备金率 <span class="tag">当前 ${pct(S.reserve*100)}</span></h3>
+    <p class="muted">按财政收入比例上缴准备金池，用于未来化债。准备金池当前 ${money(S.pool)}。</p>
+    <div class="btn-row">${[0,0.02,0.04,0.06,0.08].map(v=>rBtn(v,pct(v*100))).join("")}</div>
+  </div>
+  <div class="card"><h3>产业政策</h3>
+    ${row("产业效率", pct(S.industr*100), S.industr>=1?C.good:C.warn)}
+    <div class="btn-row">
+      <button class="btn" data-act="support" ${S.cash<300?"disabled":""}>产业扶持（¥300，效率 +4%）</button>
+      <button class="btn" data-act="green" ${S.cash<200?"disabled":""}>环保治理（¥200，宜居 +3）</button>
+      <button class="btn" data-act="attract" data-i="0" ${S.cash<BIZ_TIER[0].cost?"disabled":""}>引进小微（¥${BIZ_TIER[0].cost}）</button>
+      <button class="btn" data-act="attract" data-i="1" ${S.cash<BIZ_TIER[1].cost||d.c.ind<4?"disabled":""}>引进骨干（¥${BIZ_TIER[1].cost}）</button>
+      <button class="btn" data-act="attract" data-i="2" ${S.cash<BIZ_TIER[2].cost||d.c.ind<6?"disabled":""}>引进龙头（¥${BIZ_TIER[2].cost}）</button>
+    </div>
+    <p class="muted">招商成功率受产业口干部能力影响，失败也要付出前期成本。</p>
+  </div>`;
+}
+function eventHTML(d){
+  const open = S.petitions.filter(p=>!p.done);
+  return `
+  <div class="card"><h3>信访案件 <span class="tag">${open.length} 件待办</span></h3>
+    ${open.length? open.map((p,i)=>`
+      <div class="list-item">
+        <div class="avatar" style="background:linear-gradient(150deg,#a0342833,#ffffff10)">访</div>
+        <div class="li-main"><div class="li-t">${p.t}</div><div class="li-s">登记于 ${p.y}</div></div>
+      </div>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn sm" data-act="petition" data-i="${i}" data-w="law">依法化解 ¥120</button>
+        <button class="btn sm" data-act="petition" data-i="${i}" data-w="flex">变通处理 ¥40</button>
+        <button class="btn sm ghost" data-act="petition" data-i="${i}" data-w="skip">暂不处理</button>
+      </div>`).join("") : '<p class="muted">暂无待办信访。处理得当可提政绩、抚民心。</p>'}
+  </div>
+  <div class="card"><h3>事件中心 <span class="tag">最近处置</span></h3>
+    ${S.events.length? S.events.slice(0,8).map(e=>`
+      <div class="list-item">
+        <div class="avatar" style="background:linear-gradient(150deg,${e.dyn?"#8a7fae":"#a3661f"}44,#ffffff10)">${e.dyn?"AI":"事"}</div>
+        <div class="li-main"><div class="li-t">${e.t}</div><div class="li-s">${e.y}　处置：${e.o}</div></div>
+      </div>`).join("") : '<p class="muted">还没有处置过事件。每月会随机发生政策、人事、信访类事件。</p>'}
+  </div>
+  <div class="card"><h3>政务日志</h3>
+    ${S.log.slice(0,10).map(l=>`<p class="muted"><b style="color:var(--txt2)">${l.t} ${l.tag}</b>　${l.text}</p>`).join("")}
+  </div>`;
+}
+function planHTML(d){
+  const rows = Object.keys(CELLS).filter(k=>k!=="empty")
+    .filter(k=>d.A.cnt[k]).map(k=>`<div class="row"><span class="l" style="display:flex;align-items:center;gap:7px">
+      <i style="width:9px;height:9px;border-radius:3px;background:${CELLS[k].c};display:inline-block"></i>${CELLS[k].n}</span>
+      <span class="r">${d.A.cnt[k]} 格</span></div>`).join("");
+  return `
+  <div class="card"><h3>用地统计 <span class="tag">${d.c.built}/${COLS*ROWS} 格</span></h3>
+    ${rows || '<p class="muted">尚未建设。</p>'}
+    ${meter("区划开发度", d.c.built/(COLS*ROWS)*100, C.seal, "%")}
+    ${row("建设成本系数", pct(d.buildMul*100), d.buildMul>1.4?C.bad:d.buildMul>1.15?C.warn:C.good)}
+    <p class="muted" style="margin-top:8px">建设成本随建成量递增，越摊越大，维护费也同步上升。先算清每月收支，再决定建设规模。</p>
+  </div>
+  <div class="card"><h3>需求匹配</h3>
+    <div class="row"><span class="l">住宅容量</span><span class="r">${lv(d.dHouse)}</span></div>
+    <div class="row"><span class="l">就业岗位</span><span class="r">${lv(d.dJob)}</span></div>
+    <div class="row"><span class="l">商业岗位</span><span class="r">${lv(d.dCom)}</span></div>
+    <div class="row"><span class="l">工业岗位</span><span class="r">${lv(d.dInd)}</span></div>
+  </div>`;
+}
+function financeHTML(d){
+  const quota = 600 + S.rank*400;
+  const used = Math.max(0, quota - S.debt);
+  const R = RANKS[S.rank];
+  return `
+  <div class="card"><h3>债务结构</h3>
+    ${row("专项债（法定，不计隐性）", money(S.debt))}${row("城投债（隐性，计隐性）", money(S.hidden), C.bad)}
+    ${meter("隐性债务率", d.hiddenRatio, col(-d.hiddenRatio,-40,-70), "%")}
+    ${meter("综合债务率", d.debtRatio, col(-d.debtRatio,-60,-160), "%")}
+    ${row("偿债准备金池", money(S.pool), C.cyan)}
+    ${row("财政紧张度", fmt(d.tension), col(-d.tension,-40,-70))}
+    <p class="muted">专项债成本低、不计隐性债务率，但需 ${R.n==="镇长"?"县级及以上":R.n} 资质且投向白名单；城投债灵活但昂贵。</p>
+  </div>
+  <div class="card"><h3>发债 <span class="tag">专项债额度 ${money(used)}</span></h3>
+    <div class="btn-row">
+      <button class="btn" data-act="borrow" data-k="special" ${S.rank<1||used<200||d.debtRatio>220?"disabled":""}>申报专项债 +¥400</button>
+      <button class="btn danger" data-act="borrow" data-k="cheng" ${d.debtRatio>220?"disabled":""}>平台公司举债 +¥300</button>
+    </div>
+    <p class="muted">${S.rank<1?"镇长层级暂不具备专项债申报资质，只能依靠平台公司融资。":"专项债需投向白名单项目并及时投用，长期闲置会被审计点名。"}</p>
+  </div>
+  <div class="card"><h3>土地财政 <span class="tag">房价指数 ${fmt(S.houseIdx)}</span></h3>
+    ${row("市场热度", pct(S.landHeat*100))}
+    ${row("房价指数", fmt(S.houseIdx), col(120-S.houseIdx, 0, -25))}
+    ${row("本年出让 / 指标", `${S.landSold} / ${d.land.quota} 批`, S.landSold>=d.land.quota?C.warn:"var(--txt)")}
+    ${row("空余住宅容量", fmt(d.land.free))}
+    ${row("预估一批出让金", money(d.land.price), C.good)}
+    ${S.pendingLand?row("开发商在建地块", S.pendingLand+" 批", C.cyan):""}
+    <div class="btn-row"><button class="btn primary" data-act="sellland"
+      ${S.landSold>=d.land.quota||d.land.free<40||!S.grid.some(k=>k==="empty")?"disabled":""}>出让一批住宅用地（40 容量）</button></div>
+    <p class="muted">卖地是一次性大额收入：钱先到账，开发商随后动工补上住宅。但地价与房价被推高，挤压宜居与民意、抬升舆情，且受年度出让指标约束——土地财政是捷径，不是长策。</p>
+  </div>
+  <div class="card"><h3>化债五路径</h3>
+    <div class="btn-row">
+      <button class="btn sm" data-act="debtdeal" data-k="repay" ${S.cash<200||S.hidden<1?"disabled":""}>财政偿还 ¥200</button>
+      <button class="btn sm" data-act="debtdeal" data-k="asset" ${d.c.built<20||S.hidden<1?"disabled":""}>盘活资产</button>
+      <button class="btn sm" data-act="debtdeal" data-k="collect" ${S.biz.length<2||S.hidden<1?"disabled":""}>归集收益</button>
+      <button class="btn sm" data-act="debtdeal" data-k="roll" ${S.hidden<200?"disabled":""}>展期重组</button>
+      <button class="btn sm" data-act="debtdeal" data-k="transform" ${S.rank<1||S.hidden<300?"disabled":""}>平台转型</button>
+    </div>
+    <p class="muted">财政偿还挤占当期财力；盘活资产可小幅提升声誉；归集收益依赖企业税收；展期重组治标不治本且上调利率；平台转型需县级及以上，隐性债务率压降约 20%。</p>
+  </div>
+  <div class="card"><h3>税收结构</h3>
+    ${row("住宅", money(d.rRes))}${row("商业", money(d.rCom))}${row("工业", money(d.rInd))}${row("企业", money(d.rBiz))}
+    ${row("转移支付", money(d.rTra), C.cyan)}${row("税收效率", pct(d.taxEff*100))}
+  </div>`;
+}
+function hrHTML(d){
+  const st = S.staff;
+  return `
+  <div class="card"><h3>人事申报 <span class="tag">月工资 ${money(st.admin*0.35+st.teacher*0.30+st.doctor*0.34)}</span></h3>
+    <p class="muted">编制名额每年随经济发展水平与人口动态核定。报录比超过城市承载力会招录不满，并引发人才质量下降与舆情，宁缺毋滥。</p>
+    ${row("事业编", st.admin+" 人")}${row("教师", st.teacher+" 人")}${row("医生", st.doctor+" 人")}
+    <div class="btn-row">
+      <button class="btn sm" data-act="hire" data-k="teacher" ${S.cash<180?"disabled":""}>招录教师 +20（¥180）</button>
+      <button class="btn sm" data-act="hire" data-k="doctor" ${S.cash<210?"disabled":""}>招录医生 +20（¥210）</button>
+      <button class="btn sm" data-act="hire" data-k="admin" ${S.cash<150?"disabled":""}>招录事业编 +20（¥150）</button>
+      <button class="btn sm ghost" data-act="fire" data-k="admin" ${st.admin<60?"disabled":""}>缩减事业编 −20</button>
+      <button class="btn sm danger" data-act="reform" ${st.admin<160?"disabled":""}>机构改革（精简两成）</button>
+    </div>
+  </div>
+  <div class="card"><h3>干部任免 <span class="tag">任命影响各口效率</span></h3>
+    ${S.officials.map(o=>`
+      <div class="list-item">
+        <div class="avatar" style="background:linear-gradient(150deg,${o.it>=4?"#5b8a6b":o.it>=3?"#7d97a3":"#a03428"}44,#ffffff10)">${o.name[0]}</div>
+        <div class="li-main"><div class="li-t">${o.name} <span class="pill">${o.post} · ${o.age}岁</span></div>
+          <div class="li-s">能力 ${stars(o.ab)} · 廉洁 ${stars(o.it)}</div></div>
+        <select class="sel" data-act="appoint" data-id="${o.id}">
+          <option value="">待安排</option>
+          ${DEPTS.map(dp=>`<option value="${dp.k}" ${o.dept===dp.k?"selected":""}>${dp.n}</option>`).join("")}
+        </select>
+      </div>`).join("")}
+    <div class="btn-row">
+      <button class="btn sm" data-act="rotate" ${S.cash<120?"disabled":""}>干部轮岗调整（¥120）</button>
+      <button class="btn sm" data-act="probe" ${S.cash<80?"disabled":""}>线索核查（¥80）</button>
+    </div>
+    <p class="muted">财政口影响税收效率，城建口影响建设成本，民生口影响教育医疗，产业口影响招商成功率。在任干部廉洁越低，每月产生线索的概率越高。</p>
+  </div>
+  <div class="card"><h3>企业名录</h3>
+    ${S.biz.length? S.biz.map(b=>`
+      <div class="list-item">
+        <div class="avatar" style="background:linear-gradient(150deg,${b.stage===3?"#a03428":"#8a7fae"}44,#ffffff10)">${b.sec[0]}</div>
+        <div class="li-main"><div class="li-t">${b.name}</div>
+          <div class="li-s">${b.sec} · ${b.tier} · ${["培育","成长","成熟","衰退"][b.stage]}期 · 剩余 ${b.life} 月</div></div>
+        <span class="pill" style="color:${C.good}">+${b.tax}/月</span>
+      </div>`).join("") : '<p class="muted">暂无在册企业。</p>'}
+  </div>`;
+}
+function selfHTML(d){
+  const R = RANKS[S.rank];
+  const est = Math.round(clamp(S.growth*220,0,25)
+    + (d.debtRatio<=70?20:d.debtRatio>=200?0:20*(200-d.debtRatio)/130)
+    + ((d.edu+d.med+d.livable)/3)/100*20 + S.morale/100*20 + S.integrity/100*15);
+  return `
+  <div class="card"><h3>履历 <span class="tag">${R.n}</span></h3>
+    ${row("在任年头", (S.year-2026+(S.month>1?1:0))+" 年")}
+    ${row("本级政绩", `${S.stars}/${R.need} 次称职`)}
+    ${row("警告", S.warns+" 次", S.warns?C.bad:C.good)}
+    ${row("预估本年得分", est+" 分", col(est,R.line,R.line-10))}
+    ${meter("晋升进度", S.stars/R.need*100, C.seal)}
+    <div class="btn-row">${RANKS.map((r,i)=>
+      `<span class="pill" style="${i===S.rank?"background:rgba(200,69,44,.24);border-color:rgba(200,69,44,.6);color:#f0d9c2":""}">${r.n}</span>`).join("")}</div>
+  </div>
+  <div class="card"><h3>责任档案 <span class="tag">终身留存</span></h3>
+    ${S.dossier.length? S.dossier.map(x=>`
+      <div class="list-item">
+        <div class="avatar" style="background:linear-gradient(150deg,#a0342833,#ffffff10)">档</div>
+        <div class="li-main"><div class="li-t">${x.t}</div><div class="li-s">${x.y}　处置方式：${x.how}</div></div>
+      </div>`).join("") : '<p class="muted">档案清白。每一次越界决策都会写入责任档案，即使多年后也可能被倒查追责。</p>'}
+  </div>
+  <div class="card"><h3>历年考核</h3>
+    ${S.history.length? S.history.slice().reverse().map(h=>`
+      <div class="row"><span class="l">${h.year} 年 · ${h.grade} · 增速 ${pct(h.growth*100)}</span>
+      <span class="r" style="color:${h.total>=RANKS[Math.min(S.rank,RANKS.length-1)].line?C.good:C.bad}">${h.total}</span></div>`).join("")
+      : '<p class="muted">还没有完成过年度考核。</p>'}
+  </div>
+  <div class="card"><h3>廉洁与监察</h3>
+    ${meter("廉洁度", S.integrity, col(S.integrity,60,40))}
+    ${row("问题线索", S.clue+" 条", S.clue>=2?C.bad:"var(--txt)")}
+    <div class="btn-row"><button class="btn sm danger" data-act="grey">灰色融资 +¥600</button></div>
+    <p class="muted">灰色融资能立刻拿到现金，代价是隐性债务飙升、廉洁下降并新增线索——短期救命，长期要命。</p>
+  </div>`;
+}
+
+/* ================= 9. 动作 ================= */
+function doAct(act, ds){
+  const d = D();
+  if(act === "welfare"){ S.welfare = +ds.v; toast("民生支出强度已调整"); }
+  if(act === "reserve"){ S.reserve = +ds.v; toast("偿债准备金率已调整"); }
+  if(act === "support"){
+    if(S.cash < 300) return toast("资金不足");
+    S.cash -= 300; S.industr = clamp(S.industr+0.04,0.55,1.6);
+    pushLog("政策", "出台产业扶持政策，产业效率提升。"); toast("产业效率 +4%");
+  }
+  if(act === "green"){
+    if(S.cash < 200) return toast("资金不足");
+    S.cash -= 200; S.livMod = clamp(S.livMod+3,-18,22); S.morale = clamp(S.morale+2,0,100);
+    pushLog("政策", "开展环保治理，宜居度提升。"); toast("宜居 +3");
+  }
+  if(act === "attract"){
+    const t = BIZ_TIER[+ds.i];
+    if(S.cash < t.cost) return toast("资金不足");
+    S.cash -= t.cost;
+    const p = clamp(0.5 + d.indB + S.rank*0.04, 0.3, 0.92);
+    if(Math.random() < p){
+      const b = mkBiz(pick(SECTORS), t); S.biz.push(b); S.industr = clamp(S.industr+0.02,0.55,1.6);
+      pushLog("产业", `${b.name} 落地，月纳税 ¥${b.tax}、岗位 ${b.jobs} 个。`); toast(`${t.n}项目落地`);
+    } else { pushLog("产业", `${t.n}招商未能落地，前期投入 ¥${t.cost} 沉没。`); toast("招商失败"); }
+  }
+  if(act === "petition"){
+    const open = S.petitions.filter(p=>!p.done);
+    const p = open[+ds.i]; if(!p) return;
+    p.done = true;
+    if(ds.w === "law"){
+      if(S.cash < 120) return toast("资金不足");
+      S.cash -= 120; S.morale = clamp(S.morale+5,0,100); S.integrity = clamp(S.integrity+2,0,100);
+      S.events.unshift({t:p.t, o:"依法化解", y:`${S.year}.${S.month}`});
+      pushLog("信访", `依法化解：${p.t}`); toast("依法化解，民心回升");
+    } else if(ds.w === "flex"){
+      if(S.cash < 40) return toast("资金不足");
+      S.cash -= 40; S.morale = clamp(S.morale+1,0,100); S.integrity = clamp(S.integrity-3,0,100); S.clue++;
+      S.events.unshift({t:p.t, o:"变通处理", y:`${S.year}.${S.month}`}); addDossier(p.t, "变通处理");
+      pushLog("信访", `变通处理：${p.t}`); toast("变通处理，留下口子");
+    } else {
+      S.morale = clamp(S.morale-6,0,100); S.clue++;
+      S.events.unshift({t:p.t, o:"暂不处理", y:`${S.year}.${S.month}`});
+      pushLog("信访", `暂不处理：${p.t}`); toast("矛盾积累");
+    }
+  }
+  if(act === "borrow"){
+    if(d.debtRatio > 220) return toast("债务率过高，已无人愿意借钱");
+    if(ds.k === "special"){
+      const quota = 600 + S.rank*400, used = Math.max(0, quota - S.debt);
+      if(S.rank < 1) return toast("镇长层级无专项债申报资质");
+      if(used < 200) return toast("专项债额度不足");
+      S.debt += 400; S.cash += 400; pushLog("财政", "申报专项债 ¥400 到账。"); toast("专项债到账");
+    } else {
+      S.hidden += 300; S.cash += 300; S.integrity = clamp(S.integrity-1,0,100);
+      pushLog("财政", "平台公司举债 ¥300，隐性债务上升。"); toast("资金到账（隐性）");
+    }
+  }
+  if(act === "debtdeal"){
+    const k = ds.k;
+    if(k === "repay"){
+      if(S.cash < 200 || S.hidden < 1) return toast("条件不满足");
+      S.cash -= 200; S.hidden = Math.max(0, S.hidden-200); S.integrity = clamp(S.integrity+1,0,100);
+      pushLog("财政", "财政资金偿还城投债 ¥200。"); toast("已偿还");
+    }
+    if(k === "asset"){
+      if(d.c.built < 20 || S.hidden < 1) return toast("条件不满足");
+      S.hidden = Math.max(0, S.hidden-150); S.morale = clamp(S.morale+1,0,100); S.livMod = clamp(S.livMod-1,-18,22);
+      pushLog("财政", "盘活存量资产偿债 ¥150。"); toast("资产已变现");
+    }
+    if(k === "collect"){
+      if(S.biz.length < 2 || S.hidden < 1) return toast("条件不满足");
+      S.hidden = Math.max(0, S.hidden-120); S.industr = clamp(S.industr-0.02,0.55,1.6);
+      pushLog("财政", "归集企业收益偿债 ¥120。"); toast("收益已归集");
+    }
+    if(k === "roll"){
+      if(S.hidden < 200) return toast("条件不满足");
+      S.hidden = Math.max(0, S.hidden-250); S.hiddenRate += 0.0012;
+      S.integrity = clamp(S.integrity-2,0,100); S.morale = clamp(S.morale-2,0,100);
+      pushLog("财政", "债务展期重组，期限延长、利率上调。"); toast("已展期，利率上调");
+    }
+    if(k === "transform"){
+      if(S.rank < 1 || S.hidden < 300) return toast("需县级及以上且隐性债务≥300");
+      const cut = Math.round(S.hidden*0.2);
+      S.hidden -= cut; S.debt += cut*0.6; S.integrity = clamp(S.integrity+2,0,100);
+      pushLog("财政", `平台转型，城投债转经营性债务，隐性债务压降 ¥${cut}。`); toast("隐性债务压降 20%");
+    }
+  }
+  if(act === "hire"){
+    const cost = {teacher:180, doctor:210, admin:150}[ds.k];
+    if(S.cash < cost) return toast("资金不足");
+    S.cash -= cost; S.staff[ds.k] += 20;
+    pushLog("人事", `招录${{teacher:"教师",doctor:"医生",admin:"事业编"}[ds.k]} 20 人，支出 ¥${cost}。`);
+    toast("招录完成");
+  }
+  if(act === "fire"){
+    if(S.staff.admin < 60) return toast("编制已至下限");
+    S.staff.admin -= 20; S.morale = clamp(S.morale-3,0,100);
+    pushLog("人事", "缩减事业编 20 人，民意下滑。"); toast("已缩编");
+  }
+  if(act === "reform"){
+    const cut = Math.floor(S.staff.admin*0.2), pay = cut*5;
+    if(S.cash < pay) return toast("补偿金不足");
+    S.cash -= pay; S.staff.admin -= cut; S.morale = clamp(S.morale-5,0,100);
+    pushLog("人事", `机构改革精简 ${cut} 人，补偿 ¥${pay}。`); toast(`精简 ${cut} 人`);
+  }
+  if(act === "rotate"){
+    if(S.cash < 120) return toast("资金不足");
+    S.cash -= 120; S.clue = Math.max(0,S.clue-1); S.integrity = clamp(S.integrity+2,0,100);
+    pushLog("人事", "干部轮岗调整，线索积累缓解。"); toast("轮岗完成");
+  }
+  if(act === "probe"){
+    if(S.cash < 80) return toast("资金不足");
+    S.cash -= 80;
+    if(Math.random() < 0.62){
+      S.clue = Math.max(0,S.clue-1); S.integrity = clamp(S.integrity+3,0,100); S.morale = clamp(S.morale+2,0,100);
+      pushLog("监察", "线索核查属实，依规处理。"); toast("核查属实，已处理");
+    } else { S.morale = clamp(S.morale-2,0,100); pushLog("监察", "线索核查未获实证。"); toast("查无实据"); }
+  }
+  if(act === "grey"){
+    S.cash += 600; S.hidden += 780; S.integrity = clamp(S.integrity-5,0,100); S.clue++;
+    addDossier("灰色融资", "通过非正规渠道融资");
+    pushLog("监察", "灰色融资 ¥600，隐性债务与线索同步增加。"); toast("拿到 ¥600，风险入账");
+  }
+  if(act === "sellland"){
+    const L = d.land;
+    if(S.landSold >= L.quota) return toast("本年度出让指标已用完");
+    if(L.free < 40) return toast("空余住宅容量不足一批（40）");
+    if(!S.grid.some(k=>k==="empty")) return toast("已无空地可供出让");
+    S.cash += L.price; S.landSold++; S.pendingLand++;
+    S.houseIdx = clamp(S.houseIdx+4, 72, 165); S.landHeat = clamp(S.landHeat*0.96, 0.55, 1.5);
+    S.livMod = clamp(S.livMod-1, -18, 22); S.morale = clamp(S.morale-1, 0, 100); S.opin = clamp(S.opin+2, 0, 100);
+    pushLog("财政", `出让一批住宅用地，土地出让金 ${money(L.price)} 到账，开发商将陆续动工。`);
+    toast(`土地出让金 +${money(L.price)}`);
+  }
+  if(act === "briefing"){
+    if(S.cash < 80) return toast("资金不足");
+    if(S.opin < 8) return toast("当前并无明显舆情");
+    S.cash -= 80; const cut = Math.min(S.opin, 12);
+    S.opin = clamp(S.opin-cut, 0, 100); S.morale = clamp(S.morale+1, 0, 100);
+    pushLog("舆情", "召开新闻发布会，主动回应关切、公布处置进展。"); toast(`舆情 −${Math.round(cut)}`);
+  }
+  if(act === "appoint"){
+    const o = S.officials.find(x=>x.id===+ds.id); if(!o) return;
+    if(ds.v){ const old = S.officials.find(x=>x.dept===ds.v && x.id!==o.id); if(old) old.dept = null; }
+    o.dept = ds.v || null;
+    pushLog("人事", `${o.name} 调整至${ds.v?DEPTS.find(x=>x.k===ds.v).n:"待安排"}。`);
+  }
+  render();
+}
+
+/* ================= 10. 弹窗 / 菜单 ================= */
+function modal(html){
+  const ex = document.getElementById("mask"); if(ex) ex.remove();
+  const w = document.createElement("div"); w.className = "mask"; w.id = "mask";
+  w.innerHTML = `<div class="modal">${html}</div>`;
+  document.body.appendChild(w);
+}
+function closeModal(){ const m = $("#mask"); if(m) m.remove(); }
+function showView(d){
+  modal(`<div class="eyebrow">${S.city} · 城市一览</div><h2>查看</h2>
+    <div class="date">${S.year}.${String(S.month).padStart(2,"0")}　${RANKS[S.rank].n}</div>
+    <div class="mini" style="margin-top:10px">
+      <div class="m"><div class="k">财政</div><div class="v" style="color:${S.cash<0?C.bad:C.good}">${money(S.cash)}</div></div>
+      <div class="m"><div class="k">月度结余</div><div class="v" style="color:${d.net>=0?C.good:C.bad}">${money(d.net)}</div></div>
+      <div class="m"><div class="k">人口</div><div class="v">${fmt(S.pop)}</div></div>
+      <div class="m"><div class="k">幸福指数</div><div class="v" style="color:${col(S.morale,60,40)}">${fmt(S.morale)}</div></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="row"><span class="l">住宅容量</span><span class="r">${lv(d.dHouse)}　${fmt(S.pop)}/${fmt(d.A.cap)}</span></div>
+      <div class="row"><span class="l">就业岗位</span><span class="r">${lv(d.dJob)}　${fmt(d.labor)}/${fmt(d.jobs)}</span></div>
+      <div class="row"><span class="l">隐性债务率</span><span class="r" style="color:${col(-d.hiddenRatio,-40,-70)}">${pct(d.hiddenRatio)}</span></div>
+      <div class="row"><span class="l">教育 / 医疗 / 宜居</span><span class="r">${fmt(d.edu)} / ${fmt(d.med)} / ${fmt(d.livable)}</span></div>
+    </div>
+    <div class="btn-row"><button class="btn primary" onclick="closeModal()">关闭</button></div>`);
+}
+function renderMenu(){
+  const devBtn = (v,n) => `<button class="btn ${(DEV_LOCK||"auto")===v?"primary":"ghost"}" data-m="dev" data-v="${v}">${n}</button>`;
+  $("#menu").innerHTML = `
+    <div class="muted" style="margin-bottom:7px">布局：${LAYOUT[DEV].name}
+      ${DEV_LOCK?'<span style="color:var(--amber)">（手动锁定）</span>':'<span>（自动检测）</span>'}<br>${LAYOUT[DEV].hint}</div>
+    ${devBtn("auto","自动检测")}${devBtn("mobile","移动端")}${devBtn("tablet","平板端")}${devBtn("desktop","桌面端")}
+    <button class="btn" data-m="help" style="margin-top:9px">玩法说明</button>
+    <button class="btn" data-m="save">存档 / 读档</button>
+    <button class="btn danger" data-m="restart">重开一局</button>
+    <button class="btn ghost" data-m="close">关闭菜单</button>`;
+  $("#menu").querySelectorAll("[data-m]").forEach(b=> b.onclick = ()=>{
+    const k = b.dataset.m;
+    if(k === "close"){ $("#menu").classList.remove("open"); $("#scrim") && $("#scrim").remove(); return; }
+    if(k === "save"){ showArchive(); return; }
+    if(k === "dev"){
+      DEV_LOCK = b.dataset.v === "auto" ? null : b.dataset.v;
+      applyDevice(true); renderMenu();
+      return;
+    }
+    if(k === "restart"){ $("#menu").classList.remove("open"); $("#scrim") && $("#scrim").remove(); closeModal(); newGame(); BUSY=false; render(); return; }
+    if(k === "help"){
+      $("#menu").classList.remove("open"); $("#scrim") && $("#scrim").remove();
+      modal(`<div class="eyebrow">架空背景 · 虚构创作</div><h2>守土 · 玩法说明</h2>
+        <div class="date">一座城，一场任期，一次次设身处地的抉择</div>
+        <p>你是 ${S.city} 新任主政者。核心目标一句话：<b>发展经济 · 改善民生 · 守住廉洁底线</b>。</p>
+        <p><b>底部建造栏</b>：建造（抽屉里选用地类型后点格子）/ 拆除 / 图层（用地·宜居·收益·人口）/ 查看（城市一览）/ 下月（推进时间）。</p>
+        <p><b>右上 ＋</b>：需求 · 数据 · 政策 · 事件 · 政务（规划/财政/申报）· 个人事务。</p>
+        <p style="color:${C.warn}">负债不是失败，失控才是。举债与负债是发展过程中的正常现象，关键是结构、成本、投向与规模是否可控。先保住三保，再看建设。</p>
+        <p><b>土地财政</b>：政务 · 财政里可出让住宅用地换取一次性大额出让金，开发商随后动工补上住宅；但房价指数上升会侵蚀宜居与民意，年度出让指标有限。</p>
+        <p><b>舆情热度</b>：欠薪、赤字、信访积案与低民意都会推高舆情；舆情过高时上级来电询问，年度考核还要扣分。新闻发布会与依法化解信访可以有效降温。</p>
+        <p class="muted">空格键 = 推进下月。任期有限，年度考核决定去留。</p>
+        <div class="btn-row"><button class="btn primary" onclick="closeModal()">知道了</button></div>`);
+    }
+  });
+}
+
+/* ================= 11. 启动 ================= */
+function welcomeHTML(){
+  return `<div class="eyebrow">架空背景 · 虚构创作</div><h2>守土</h2>
+    <div class="date">一座城，一场任期，一次设身处地的抉择</div>
+    <p>你是 ${S.city} 新任${RANKS[0].n}。这局没有“零负债”的完美账本——举债是常态，但每一笔都要还；三保（保工资、保运转、保基本民生）是刚性支出，砍不得；教育、医疗、宜居是慢变量，等民意掉下来再补就晚了。</p>
+    <p style="color:${C.warn}">新手最容易栽在两处：无节制举债冲 GDP，以及只铺住宅不配套岗位与公服。</p>
+    <p class="muted">底栏：建造 / 拆除 / 图层 / 查看 / 下月。右上 ＋ 打开六大板块；缺钱可出让土地，出事了要盯舆情。</p>
+    <div class="btn-row"><button class="btn primary" onclick="closeModal()">就任</button></div>`;
+}
+function continueAuto(){ if(loadAuto()){ BUSY=false; closeModal(); render(); toast("已读取上局存档"); } }
+function startNew(){ closeModal(); newGame(); render(); modal(welcomeHTML()); }
+function boot(){
+  newGame(); buildGrid(); applyDevice(true); renderMenu();
+  // 窗口缩放 / 设备旋转：实时切换视图层，业务状态与滚动位置保留
+  if(typeof window !== "undefined"){
+    const raf = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : f=>setTimeout(f,60);
+    const caf = window.cancelAnimationFrame ? window.cancelAnimationFrame.bind(window) : clearTimeout;
+    let timer = 0;
+    window.addEventListener("resize", ()=>{ caf(timer); timer = raf(()=> applyDevice()); });
+    window.addEventListener("orientationchange", ()=> setTimeout(()=> applyDevice(true), 150));
+  }
+  $("#btnPlus").onclick = ()=>{ PANEL = !PANEL; render(); };
+  $("#btnMenu").onclick = ()=>{
+    const m = $("#menu");
+    m.classList.toggle("open");
+    if(m.classList.contains("open")){
+      const s = document.createElement("div"); s.className = "scrim"; s.id = "scrim";
+      s.onclick = ()=>{ m.classList.remove("open"); s.remove(); };
+      document.body.appendChild(s);
+    } else { const s = $("#scrim"); s && s.remove(); }
+  };
+  document.querySelectorAll(".bb-btn").forEach(b=> b.onclick = ()=>{
+    const k = b.dataset.bb;
+    if(k === "build"){ MODE = "build"; }
+    if(k === "demolish"){ MODE = "demolish"; }
+    if(k === "layer"){ LAYER = LAYERS[(LAYERS.findIndex(x=>x.k===LAYER)+1) % LAYERS.length].k; toast("图层："+LAYERS.find(x=>x.k===LAYER).n); }
+    if(k === "view"){ showView(D()); }
+    render();
+  });
+  $("#nextBtn").onclick = nextMonth;
+  document.addEventListener("keydown", e=>{
+    if(e.code === "Space" && !BUSY){ e.preventDefault(); nextMonth(); }
+    if(e.code === "Escape"){ PANEL = false; closeModal(); render(); }
+  });
+  // 自动存档续局
+  if(hasAuto()){
+    const p = lsGet(KEY.auto, null), s = p.S;
+    modal(`<div class="eyebrow">欢迎回来</div><h2>检测到未完成的任期</h2>
+      <div class="date">${s.city}${RANKS[s.rank].n} · ${s.year}.${String(s.month).padStart(2,"0")} · 财政 ${money(s.cash)} · 民意 ${fmt(s.morale)}</div>
+      <p>检测到上次未完成的任期，是否继续？继续将读取存档（含地图、人事、财政与新手引导进度）；重开则开始一局全新的城市。</p>
+      <div class="btn-row">
+        <button class="btn primary" onclick="continueAuto()">继续上局</button>
+        <button class="btn" onclick="startNew()">重开一局</button>
+      </div>`);
+  } else {
+    render(); modal(welcomeHTML());
+  }
+}
+boot();
+</script>
+</body>
+</html>
