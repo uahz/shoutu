@@ -30,6 +30,11 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .glass{background:var(--card);border:1px solid var(--stroke);border-radius:var(--r);
   backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
   box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(216,180,90,.08)}
+/* 悬浮在宣纸地图上的面板必须用实底，否则纸色透过来导致数据看不清 */
+.panel.glass{background:linear-gradient(180deg,rgba(17,27,22,.985),rgba(10,16,13,.985));
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.drawer.glass{background:linear-gradient(180deg,rgba(17,27,22,.97),rgba(10,16,13,.97))}
+.menu.glass{background:linear-gradient(180deg,rgba(17,27,22,.97),rgba(10,16,13,.97))}
 .app{height:100vh;display:grid;grid-template-rows:auto 1fr auto;gap:10px;padding:12px;
   max-width:1200px;margin:0 auto;position:relative}
 
@@ -116,7 +121,7 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .pn-body{flex:1;overflow-y:auto;padding:2px 14px 16px}
 .pn-body::-webkit-scrollbar{width:7px}
 .pn-body::-webkit-scrollbar-thumb{background:rgba(216,180,90,.22);border-radius:4px}
-.card{background:rgba(226,214,178,.045);border:1px solid var(--stroke);border-radius:6px;padding:12px 13px;margin-bottom:9px;
+.card{background:rgba(226,214,178,.07);border:1px solid var(--stroke);border-radius:6px;padding:12px 13px;margin-bottom:9px;
   animation:fade .34s var(--ease)}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .card h3{font-family:var(--serif);font-size:13.5px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:7px;
@@ -144,7 +149,7 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .meter .track{height:7px;border-radius:3px;background:rgba(226,214,178,.1);overflow:hidden}
 .meter .fill{height:100%;border-radius:3px;transition:width .6s var(--ease),background .3s}
 .mini{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
-.mini .m{background:rgba(226,214,178,.04);border:1px solid var(--stroke);border-radius:5px;padding:9px 11px}
+.mini .m{background:rgba(226,214,178,.06);border:1px solid var(--stroke);border-radius:5px;padding:9px 11px}
 .mini .m .k{font-size:10.5px;color:var(--txt3)}
 .mini .m .v{font-size:15px;font-weight:660;margin-top:3px;font-variant-numeric:tabular-nums;font-family:var(--serif)}
 .list-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px dashed rgba(216,180,90,.14)}
